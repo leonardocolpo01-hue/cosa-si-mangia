@@ -41,7 +41,7 @@ function guessCat(name) {
 }
 const catOf = d => CAT_L[d.cat] ? d.cat : guessCat(d.name);
 
-const S = { members: null, pres: {}, menu: {}, disp: [], ric: [], spesa: [], week: 0, me: LS.get('me', null), tab: TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'settimana', luogo: 'tutto', cat: 'tutte', q: '', rq: '', onlyCan: false, note: '', phase: 'start', err: '', cfg: null, fam: '', asked: false };
+const S = { members: null, pres: {}, menu: {}, disp: [], ric: [], spesa: [], week: 0, me: LS.get('me', null), tab: TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'settimana', luogo: 'tutto', sel: null, fold: LS.get('fold', []), q: '', rq: '', onlyCan: false, note: '', phase: 'start', err: '', cfg: null, fam: '', asked: false };
 let F = null; // { fs, db, fam }
 let FBX = null; // { app, fs, db, authMod, auth }
 
@@ -53,10 +53,23 @@ const dt = k => new Date(k + 'T12:00:00');
 const dayFmt = new Intl.DateTimeFormat('it-IT', { weekday: 'long', day: 'numeric', month: 'short' });
 const shortFmt = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short' });
 const numFmt = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 1 });
+const wdFmt = new Intl.DateTimeFormat('it-IT', { weekday: 'short' });
+const wdLong = new Intl.DateTimeFormat('it-IT', { weekday: 'long' });
+const longFmt = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long' });
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+const zero = d => typeof d.qty === 'number' && d.qty <= 0;
+const IC = {
+  cam: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  rec: '<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>',
+  pen: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>',
+  list: '<svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>',
+  share: '<svg viewBox="0 0 24 24"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M5 12v8h14v-8"/></svg>',
+  chev: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'
+};
 const round = x => Math.round(x * 100) / 100;
 const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const randCode = () => { const a = new Uint8Array(18); crypto.getRandomValues(a); return [...a].map(b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('') };
-function weekDays(off) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + off * 7); return [...Array(7)].map((_, i) => { const x = new Date(d); x.setDate(d.getDate() + i); return x }) }
+function weekDays(off) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + off * 7); return [...Array(7)].map((_, i) => { const x = new Date(d); x.setDate(d.getDate() + i); return x }) }
 const daysTo = s => Math.round((dt(s) - dt(today())) / 864e5);
 const scadTxt = s => { const d = daysTo(s); return d < 0 ? 'scaduto' : d === 0 ? 'oggi' : d === 1 ? 'domani' : `tra ${d} gg` };
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -185,46 +198,54 @@ const encCfg = c => btoa(unescape(encodeURIComponent(JSON.stringify(c)))).replac
 const decCfg = s => { try { s = decodeURIComponent(s).replace(/-/g, '+').replace(/_/g, '/'); const c = JSON.parse(decodeURIComponent(escape(atob(s)))); return c.apiKey ? c : null } catch (e) { return null } };
 const inviteLink = () => `${location.origin}${location.pathname}?f=${S.fam}${CFG && CFG.apiKey ? '' : '&c=' + encCfg(S.cfg)}`;
 
-function hero() {
-  const t = today(), now = new Date(), hr = now.getHours() + now.getMinutes() / 60; const mk = hr < 10 ? 'c' : hr < 14.5 ? 'p' : 's';
-  const lab = { c: 'Stamattina a colazione', p: 'Oggi a pranzo', s: 'Stasera a cena' }[mk];
-  const home = members().filter(m => pres(t, m.id)[mk] !== false); const mn = menuLabel(t, mk); const v = (S.menu[t] || {})[mk]; const r = v && v.rid && S.ric.find(x => x.id === v.rid);
-  const soon = S.disp.filter(d => d.scad && daysTo(d.scad) <= 3 && !(typeof d.qty === 'number' && d.qty <= 0)).sort((a, b) => a.scad.localeCompare(b.scad)).slice(0, 4);
-  return `<section class="hero"><svg class="plate" viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="100" r="92" fill="rgba(255,255,255,.14)"/><circle cx="100" cy="100" r="70" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.35)" stroke-width="2"/><circle cx="100" cy="100" r="46" fill="rgba(0,0,0,.08)"/><path d="M84 92c6-14 26-14 32 0" stroke="rgba(255,255,255,.5)" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
-  <p class="hl">${lab}</p><p class="hn">${home.length ? `${home.length} a casa` : 'Nessuno a casa'}</p><p class="hw">${home.map(m => esc(m.name)).join(', ') || 'Tutti fuori'}</p>
-  <div class="hm">${mn ? (r ? `<button class="hmn" data-act="ropen" data-id="${r.id}">${esc(mn)}</button>` : `<span class="hq" style="opacity:1">${esc(mn)}</span>`) : '<span class="hq">Ancora da decidere</span>'}</div>
-  <div class="hb"><button class="bw" data-act="menu" data-d="${t}" data-meal="${mk}">${mn ? 'Cambia' : 'Scegli cosa cucinare'}</button>${gkey() ? '<button class="bo" data-act="ai">Idee con quello che c\'è</button>' : ''}</div>
-  ${soon.length ? `<p class="hs">Da usare presto: ${soon.map(d => `${esc(d.name)} <small>(${scadTxt(d.scad)})</small>`).join(' · ')}</p>` : ''}</section>`
-}
-
 function renderSett() {
-  const ds = weekDays(S.week), M = members(), t = today(); let h = S.week === 0 ? hero() : '';
-  h += `<div class="wk"><button class="ib" data-act="wk" data-v="-1" aria-label="Settimana precedente">‹</button><b>${S.week === 0 ? 'Questa settimana' : shortFmt.format(ds[0]) + ' – ' + shortFmt.format(ds[6])}</b><button class="ib" data-act="wk" data-v="1" aria-label="Settimana successiva">›</button></div>`;
-  h += ds.map(d => {
-    const k = ymd(d); const imps = M.flatMap(m => (pres(k, m.id).imp || []).map((x, i) => ({ ...x, m, i }))).sort((a, b) => (a.ora || '99').localeCompare(b.ora || '99'));
-    return `<article class="day${k === t ? ' today' : ''}${k < t ? ' past' : ''}"><header><h3>${esc(dayFmt.format(d))}</h3>${k === t ? '<span class="pill">Oggi</span>' : ''}<button class="lnk" data-act="imp" data-d="${k}">+ Impegno</button></header>
-    ${imps.length ? `<ul class="imps">${imps.map(x => `<li><i style="background:${x.m.color}"></i>${x.ora ? `<span class="t">${esc(x.ora)}</span>` : ''}<span><b>${esc(x.m.name)}</b> · ${esc(x.testo)}</span><button class="x" data-act="delimp" data-d="${k}" data-m="${x.m.id}" data-i="${x.i}" aria-label="Elimina impegno">×</button></li>`).join('')}</ul>` : ''}
-    ${MEALS.map(([mk, ml]) => {
-      const n = M.filter(m => pres(k, m.id)[mk] !== false).length; const mn = menuLabel(k, mk);
-      return `<div class="meal"><span class="ml">${ml}</span><span class="avs">${M.map(m => { const on = pres(k, m.id)[mk] !== false; return `<button class="av${on ? ' on' : ''}" style="--c:${m.color}" data-act="tog" data-d="${k}" data-m="${m.id}" data-meal="${mk}" aria-pressed="${on}" aria-label="${esc(m.name)} ${on ? 'a casa' : 'fuori'}" title="${esc(m.name)}">${esc(ini(m.name))}</button>` }).join('')}</span><span class="cnt" title="a casa">${n}</span><button class="mn${mn ? '' : ' empty'}" data-act="menu" data-d="${k}" data-meal="${mk}">${mn ? esc(mn) : 'Cosa si mangia?'}</button></div>`
-    }).join('')}</article>`
+  const ds = weekDays(S.week), M = members(), t = today();
+  if (!S.sel || !ds.some(d => ymd(d) === S.sel)) S.sel = S.week === 0 ? t : ymd(ds[0]);
+  const k = S.sel, d = dt(k), tom = (() => { const x = new Date(); x.setDate(x.getDate() + 1); return ymd(x) })();
+  const now = new Date(), hr = now.getHours() + now.getMinutes() / 60;
+  const nextMk = k === t ? (hr < 10 ? 'c' : hr < 14.5 ? 'p' : hr < 22 ? 's' : null) : null;
+  const soon = k === t ? S.disp.filter(x => x.scad && daysTo(x.scad) <= 2 && !zero(x)).sort((a, b) => a.scad.localeCompare(b.scad)).slice(0, 3) : [];
+  let h = `<div class="strip"><button class="ib" data-act="wk" data-v="-1" aria-label="Settimana prima">‹</button><div class="days">${ds.map(x => {
+    const kk = ymd(x); const has = ['p', 's'].some(mk => menuLabel(kk, mk)); const imp = M.some(m => (pres(kk, m.id).imp || []).length);
+    return `<button class="dp${kk === k ? ' on' : ''}${kk === t ? ' td' : ''}${kk < t ? ' past' : ''}" data-act="sel" data-d="${kk}" aria-label="${esc(dayFmt.format(x))}"><span class="w">${esc(wdFmt.format(x).replace('.', ''))}</span><span class="n">${x.getDate()}</span><span class="dots">${has ? '<i></i>' : ''}${imp ? '<i class="d2"></i>' : ''}</span></button>`
+  }).join('')}</div><button class="ib" data-act="wk" data-v="1" aria-label="Settimana dopo">›</button></div>`;
+  h += `<div class="dhead"><h2>${k === t ? 'Oggi' : k === tom ? 'Domani' : esc(cap(wdLong.format(d)))}</h2><span>${esc(longFmt.format(d))}</span>${S.week !== 0 ? '<button class="lnk" data-act="wk0">Torna a oggi</button>' : ''}</div>`;
+  if (soon.length) h += `<button class="alert" data-act="tab" data-v="dispensa"><b>Da usare presto</b>${soon.map(x => `${esc(x.name)} <small>(${scadTxt(x.scad)})</small>`).join(', ')}</button>`;
+  h += MEALS.map(([mk, ml]) => {
+    const home = M.filter(m => pres(k, m.id)[mk] !== false); const mn = menuLabel(k, mk); const v = (S.menu[k] || {})[mk]; const r = v && v.rid && S.ric.find(x => x.id === v.rid);
+    return `<section class="mc${mk === nextMk ? ' next' : ''}${k < t ? ' past' : ''}"><header><span class="mt2">${ml}</span>${mk === nextMk ? '<span class="badge">Prossimo</span>' : ''}<span class="cnt">${home.length ? home.length + ' a casa' : 'nessuno a casa'}</span></header>
+    <div class="mline">${mn ? `<button class="mname" data-act="${r ? 'ropen' : 'menu'}" data-id="${r ? r.id : ''}" data-d="${k}" data-meal="${mk}">${esc(mn)}</button><button class="lnk" data-act="menu" data-d="${k}" data-meal="${mk}">Cambia</button>` : `<button class="madd" data-act="menu" data-d="${k}" data-meal="${mk}">+ Cosa si mangia?</button>${mk === nextMk && gkey() ? '<button class="lnk" data-act="ai">Idee</button>' : ''}`}</div>
+    <div class="avs">${M.map(m => { const on = pres(k, m.id)[mk] !== false; return `<button class="av${on ? ' on' : ''}" style="--c:${m.color}" data-act="tog" data-d="${k}" data-m="${m.id}" data-meal="${mk}" aria-pressed="${on}" aria-label="${esc(m.name)}: ${on ? 'a casa' : 'fuori'}"><span>${esc(ini(m.name))}</span><small>${esc(m.name)}</small></button>` }).join('')}</div></section>`
   }).join('');
+  const imps = M.flatMap(m => (pres(k, m.id).imp || []).map((x, i) => ({ ...x, m, i }))).sort((a, b) => (a.ora || '99').localeCompare(b.ora || '99'));
+  h += `<section class="mc"><header><span class="mt2">Impegni</span><button class="lnk" data-act="imp" data-d="${k}" style="margin-left:auto">+ Aggiungi</button></header>${imps.length ? `<ul class="imps">${imps.map(x => `<li><i style="background:${x.m.color}"></i>${x.ora ? `<span class="t">${esc(x.ora)}</span>` : ''}<span><b>${esc(x.m.name)}</b> · ${esc(x.testo)}</span><button class="x" data-act="delimp" data-d="${k}" data-m="${x.m.id}" data-i="${x.i}" aria-label="Elimina impegno">×</button></li>`).join('')}</ul>` : '<p class="sub" style="margin:2px 0 0">Nessun impegno. Chi esce a mangiare può segnarlo qui.</p>'}</section>`;
   $('#sett').innerHTML = h
 }
 
 function renderDisp() {
-  const q = norm(S.q); const inL = d => S.luogo === 'tutto' || d.luogo === S.luogo; const L = S.disp.filter(d => inL(d) && (S.cat === 'tutte' || catOf(d) === S.cat) && (!q || norm(d.name).includes(q))).sort((a, b) => (a.scad || '9999').localeCompare(b.scad || '9999') || String(a.name).localeCompare(b.name, 'it'));
-  const cnt = l => S.disp.filter(d => l === 'tutto' || d.luogo === l).length;
-  $('#lgs').innerHTML = [['tutto', 'Tutto'], ...LUOGHI].map(([k, l]) => `<button class="seg${S.luogo === k ? ' on' : ''}" data-act="luogo" data-v="${k}">${l} <small>${cnt(k)}</small></button>`).join('');
-  const inLoc = S.disp.filter(inL); const cc = c => inLoc.filter(d => catOf(d) === c).length;
-  $('#cats').innerHTML = inLoc.length ? `<button class="seg${S.cat === 'tutte' ? ' on' : ''}" data-act="cat" data-v="tutte">Tutte</button>` + CATS.filter(([k]) => cc(k) || S.cat === k).map(([k, l]) => `<button class="seg${S.cat === k ? ' on' : ''}" data-act="cat" data-v="${k}">${l} <small>${cc(k)}</small></button>`).join('') : '';
-  $('#dlist').innerHTML = L.length ? L.map(d => {
-    const z = typeof d.qty === 'number' && d.qty <= 0; const dd = d.scad ? daysTo(d.scad) : null;
-    return `<li class="it${z ? ' zero' : ''}"><button class="nm" data-act="dedit" data-id="${d.id}"><b>${esc(d.name)}</b><small>${[S.luogo === 'tutto' ? LUOGO_L[d.luogo] : '', S.cat === 'tutte' ? CAT_L[catOf(d)] : ''].filter(Boolean).map(esc).join(' · ')}${d.scad ? ` <span class="sc${dd < 0 ? ' bad' : dd <= 3 ? ' warn' : ''}">${dd < 0 ? 'scaduto' : 'scade ' + scadTxt(d.scad)}</span>` : ''}</small></button>
-    ${z ? '<span class="fin">Finito</span><button class="sm" data-act="d2spesa" data-id="' + d.id + '">In spesa</button>' : ''}
-    ${d.unit === 'qb' || d.qty == null ? `<button class="sm" data-act="dzero" data-id="${d.id}">Finito</button>` : `<span class="qt"><button class="ib" data-act="dq" data-id="${d.id}" data-v="-1" aria-label="Meno ${esc(d.name)}">−</button><span>${fmtQ(d.qty, d.unit)}</span><button class="ib" data-act="dq" data-id="${d.id}" data-v="1" aria-label="Più ${esc(d.name)}">+</button></span>`}</li>`
-  }).join('')
-    : `<li class="empty">${S.disp.length ? 'Niente qui.' : 'La dispensa è vuota. Fotografa un prodotto o uno scontrino, oppure con "Più cose" scrivi tutto quello che c\'è, una cosa per riga.'}</li>`
+  const q = norm(S.q); const inL = d => S.luogo === 'tutto' || d.luogo === S.luogo;
+  const all = S.disp.filter(d => inL(d) && (!q || norm(d.name).includes(q)));
+  const cnt = l => S.disp.filter(d => (l === 'tutto' || d.luogo === l) && !zero(d)).length;
+  $('#lgs').innerHTML = [['tutto', 'Tutto'], ...LUOGHI].map(([k, l]) => `<button class="${S.luogo === k ? 'on' : ''}" data-act="luogo" data-v="${k}">${l} <small>${cnt(k)}</small></button>`).join('');
+  const by = (a, b) => String(a.name).localeCompare(b.name, 'it');
+  const live = all.filter(d => !zero(d)), fin = all.filter(zero).sort(by);
+  const soon = live.filter(d => d.scad && daysTo(d.scad) <= 3).sort((a, b) => a.scad.localeCompare(b.scad));
+  const row = (d, showCat) => {
+    const dd = d.scad ? daysTo(d.scad) : null; const bits = [S.luogo === 'tutto' ? LUOGO_L[d.luogo] : '', showCat ? CAT_L[catOf(d)] : ''].filter(Boolean).map(esc);
+    if (d.scad) bits.push(`<span class="sc${dd < 0 ? ' bad' : dd <= 3 ? ' warn' : ''}">${dd < 0 ? 'scaduto' : 'scade ' + scadTxt(d.scad)}</span>`);
+    return `<button class="ri" data-act="dedit" data-id="${d.id}"><span class="rn"><b>${esc(d.name)}</b>${bits.length ? `<small>${bits.join(' · ')}</small>` : ''}</span><span class="rq">${d.unit === 'qb' || d.qty == null ? '' : fmtQ(d.qty, d.unit)}</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>`
+  };
+  const sec = (id, title, n, body, cls = '') => { const closed = !q && S.fold.includes(id); return `<section class="grp ${cls}${closed ? ' closed' : ''}"><h3 data-act="fold" data-v="${id}">${title} <small>${n}</small>${IC.chev}</h3><div class="card">${body}</div></section>` };
+  let h = '';
+  if (!S.disp.length) h = `<div class="emptyc"><b>La dispensa è vuota</b><p>Tocca + per aggiungere: fotografa un prodotto o lo scontrino, oppure scrivi tutto in una volta.</p><button class="bp" data-act="dplus">Aggiungi</button></div>`;
+  else if (!all.length) h = `<div class="emptyc">${q ? 'Nessun risultato.' : 'Qui non c\'è niente.'}</div>`;
+  else {
+    const soonIds = new Set(soon.map(d => d.id));
+    if (soon.length) h += sec('scad', 'In scadenza', soon.length, soon.map(d => row(d, true)).join(''), 'warn');
+    h += CATS.map(([k, l]) => [k, l, live.filter(d => !soonIds.has(d.id) && catOf(d) === k).sort(by)]).filter(x => x[2].length).map(([k, l, L]) => sec(k, l, L.length, L.map(d => row(d, false)).join(''))).join('');
+    if (fin.length) h += sec('fin', 'Finiti', fin.length, fin.map(d => `<div class="ri fin"><button class="rn" data-act="dedit" data-id="${d.id}"><b>${esc(d.name)}</b></button><button class="sm" data-act="d2spesa" data-id="${d.id}">In spesa</button><button class="x" data-act="ddel" data-id="${d.id}" aria-label="Togli ${esc(d.name)}">×</button></div>`).join(''));
+  }
+  $('#dlist').innerHTML = h
 }
 
 function renderRic() {
@@ -249,20 +270,30 @@ const acts = (label = 'Salva') => `<div class="acts"><button type="button" class
 
 function dispModal(d) {
   const isNew = !d; d = d || { name: '', qty: 1, unit: 'pz', luogo: S.luogo !== 'tutto' ? S.luogo : '', scad: '' };
-  modal(`<h2>${isNew ? 'Aggiungi in casa' : 'Modifica'}</h2><form id="f"><label>Cosa<input name="name" required value="${esc(d.name)}" autocomplete="off" placeholder="Es. latte, pasta, uova"></label>
-  <div class="row"><label>Quantità<input name="qty" type="number" inputmode="decimal" step="any" min="0" value="${d.qty ?? ''}"></label><label>Unità<select name="unit">${UNITS.map(u => `<option${u === (d.unit || 'pz') ? ' selected' : ''}>${u}</option>`).join('')}</select></label></div>
-  <div class="row"><label>Dove<select name="luogo"><option value="">Lo decide l'app</option>${LUOGHI.map(([k, l]) => `<option value="${k}"${k === d.luogo ? ' selected' : ''}>${l}</option>`).join('')}</select></label><label>Scadenza<input name="scad" type="date" value="${esc(d.scad || '')}"></label></div>
-  <label>Categoria<select name="cat"><option value="">Lo decide l'app</option>${CATS.map(([k, l]) => `<option value="${k}"${k === d.cat ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-  <div class="acts">${isNew ? '' : '<button type="button" class="bd" id="del">Elimina</button>'}<button type="button" class="bg" data-act="close">Annulla</button>${isNew ? '<button class="bg" value="more">Salva e un altro</button>' : ''}<button class="bp" value="ok">Salva</button></div></form>`, m => {
-    m.querySelector('#f').onsubmit = e => {
-      e.preventDefault(); const f = e.target; const name = E(f, 'name').value.trim(); if (!name) return; const qs = E(f, 'qty').value; const luogo = E(f, 'luogo').value;
-      save('dispensa', isNew ? null : d.id, { ...(isNew ? {} : d), name, qty: qs === '' ? null : parseFloat(qs), unit: E(f, 'unit').value, luogo: luogo || guessLuogo(name), cat: E(f, 'cat').value || guessCat(name), scad: E(f, 'scad').value || '' });
-      if (e.submitter && e.submitter.value === 'more') { toast(name + ' aggiunto'); dispModal(); if (luogo) E($('#f'), 'luogo').value = luogo } else close()
+  modal(`<h2>${isNew ? 'Aggiungi in casa' : esc(d.name)}</h2><form id="f">
+  <label>Nome<input name="name" required value="${esc(d.name)}" autocomplete="off" placeholder="Es. latte, pasta, uova"></label>
+  <label>Quantità</label><div class="stepper"><button type="button" class="ib" id="mn" aria-label="Meno">−</button><input name="qty" type="number" inputmode="decimal" step="any" min="0" value="${d.qty ?? ''}" aria-label="Quantità"><button type="button" class="ib" id="pl" aria-label="Più">+</button><select name="unit" aria-label="Unità">${UNITS.map(u => `<option${u === (d.unit || 'pz') ? ' selected' : ''}>${u}</option>`).join('')}</select></div>
+  <label>Dove</label><div class="segc">${LUOGHI.map(([k, l]) => `<label><input type="radio" name="luogo" value="${k}"${k === d.luogo ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
+  <div class="row"><label>Categoria<select name="cat"><option value="">Automatica</option>${CATS.map(([k, l]) => `<option value="${k}"${k === d.cat ? ' selected' : ''}>${l}</option>`).join('')}</select></label><label>Scadenza<input name="scad" type="date" value="${esc(d.scad || '')}"></label></div>
+  <div class="acts">${isNew ? '' : '<button type="button" class="bd" id="del">Elimina</button><button type="button" class="bg" id="fin">Finito</button>'}${isNew ? '<button class="bg" value="more">Salva e un altro</button>' : ''}<button class="bp" value="ok">Salva</button></div></form>`, m => {
+    const f = m.querySelector('#f'); const qi = E(f, 'qty'); let touched = !!d.luogo;
+    const step = v => { const q = Math.max(0, round((parseFloat(qi.value) || 0) + v * stepFor(E(f, 'unit').value))); qi.value = q };
+    m.querySelector('#mn').onclick = () => step(-1); m.querySelector('#pl').onclick = () => step(1);
+    f.querySelectorAll('input[name=luogo]').forEach(r => r.onchange = () => touched = true);
+    E(f, 'name').oninput = () => { if (touched) return; const g = guessLuogo(E(f, 'name').value); f.querySelectorAll('input[name=luogo]').forEach(r => r.checked = r.value === g) };
+    f.onsubmit = e => {
+      e.preventDefault(); const name = E(f, 'name').value.trim(); if (!name) return; const qs = qi.value; const lr = f.querySelector('input[name=luogo]:checked'); const luogo = lr ? lr.value : guessLuogo(name);
+      save('dispensa', isNew ? null : d.id, { ...(isNew ? {} : d), name, qty: qs === '' ? null : parseFloat(qs), unit: E(f, 'unit').value, luogo, cat: E(f, 'cat').value || guessCat(name), scad: E(f, 'scad').value || '' });
+      if (e.submitter && e.submitter.value === 'more') { toast(name + ' aggiunto'); dispModal(); const r2 = $('#f').querySelector(`input[name=luogo][value=${luogo}]`); if (r2 && lr) r2.checked = true } else close()
     };
-    const x = m.querySelector('#del'); if (x) x.onclick = () => { del('dispensa', d.id); close() }
+    const x = m.querySelector('#del'); if (x) { let armed = false; x.onclick = () => { if (!armed) { armed = true; x.textContent = 'Sicuro?'; return } del('dispensa', d.id); close() } }
+    const fb = m.querySelector('#fin'); if (fb) fb.onclick = () => { save('dispensa', d.id, { ...d, qty: 0 }); addToSpesa([{ name: d.name, qty: null, unit: d.unit === 'qb' ? 'pz' : d.unit }]); close(); toast(d.name + ' finito, messo in spesa') }
   })
 }
-
+function addSheet() {
+  const it = (act, t, sub, ic) => `<button class="act" data-act="${act}"><span class="ai">${ic}</span><span><b>${t}</b><small>${sub}</small></span></button>`;
+  modal(`<h2>Aggiungi in casa</h2><div class="acts-l">${it('photo', 'Foto di un prodotto', 'Codice a barre, frutta e verdura', IC.cam)}${it('scan', 'Scontrino', 'Tutta la spesa in una volta', IC.rec)}${it('dadd', 'Scrivi a mano', 'Un prodotto, con quantità e scadenza', IC.pen)}${it('dbulk', 'Più cose insieme', 'Una per riga, es. "2 l latte"', IC.list)}</div><div class="acts-l">${it('keepdisp', 'Manda l\'elenco a Keep', 'Tutto quello che c\'è in casa', IC.share)}</div>`)
+}
 function bulkModal() {
   modal(`<h2>Aggiungi più cose</h2><p class="sub">Una per riga. Se c'è già, la quantità si somma.</p><form id="f"><label>Cosa c'è<textarea name="t" rows="8" placeholder="2 l latte&#10;500 g pasta&#10;6 uova&#10;mozzarella"></textarea></label>
   <label>Dove<select name="l"><option value="">Lo decide l'app per ognuna</option>${LUOGHI.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>${acts('Aggiungi')}</form>`, m => {
@@ -602,11 +633,11 @@ function go(t) { if (!TABS.includes(t)) t = 'settimana'; S.tab = t; if (location
 document.addEventListener('click', e => {
   if (e.target.id === 'modal') { close(); return } const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act, ds = b.dataset;
   if (a === 'close') close(); else if (a === 'tab') go(ds.v); else if (a === 'who') whoModal(); else if (a === 'settings') settingsModal();
-  else if (a === 'wk') { S.week += +ds.v; subWeek(); render() }
+  else if (a === 'wk') { S.week += +ds.v; S.sel = null; subWeek(); render() } else if (a === 'wk0') { S.week = 0; S.sel = null; subWeek(); render() } else if (a === 'sel') { S.sel = ds.d; render() } else if (a === 'dplus') addSheet(); else if (a === 'fold') { const i = S.fold.indexOf(ds.v); if (i >= 0) S.fold.splice(i, 1); else S.fold.push(ds.v); LS.set('fold', S.fold); render() } else if (a === 'ddel') del('dispensa', ds.id);
   else if (a === 'tog') { const p = pres(ds.d, ds.m); setPres(ds.d, ds.m, { [ds.meal]: p[ds.meal] === false }) }
   else if (a === 'menu') menuModal(ds.d, ds.meal); else if (a === 'imp') impModal(ds.d);
   else if (a === 'delimp') { const p = pres(ds.d, ds.m); setPres(ds.d, ds.m, { imp: (p.imp || []).filter((_, i) => i !== +ds.i) }) }
-  else if (a === 'luogo') { S.luogo = ds.v; render() } else if (a === 'cat') { S.cat = ds.v; render() } else if (a === 'photo') photoModal(); else if (a === 'dadd') dispModal(); else if (a === 'dbulk') bulkModal(); else if (a === 'scan') scanModal();
+  else if (a === 'luogo') { S.luogo = ds.v; render() } else if (a === 'photo') photoModal(); else if (a === 'dadd') dispModal(); else if (a === 'dbulk') bulkModal(); else if (a === 'scan') scanModal();
   else if (a === 'dedit') dispModal(S.disp.find(x => x.id === ds.id));
   else if (a === 'dq') { const d = S.disp.find(x => x.id === ds.id); if (d) save('dispensa', d.id, { ...d, qty: Math.max(0, round((d.qty || 0) + (+ds.v) * stepFor(d.unit))) }) }
   else if (a === 'dzero') { const d = S.disp.find(x => x.id === ds.id); if (d) { save('dispensa', d.id, { ...d, qty: 0 }); addToSpesa([{ name: d.name, qty: null, unit: d.unit === 'qb' ? 'pz' : d.unit }]); toast(d.name + ' messo in spesa') } }
