@@ -263,8 +263,23 @@ function renderSpesa() {
 }
 
 /* ---------- modals ---------- */
-function modal(html, mount) { const m = $('#modal'); m.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${html}</div>`; m.hidden = false; mount && mount(m) }
-function close() { const m = $('#modal'); m.hidden = true; m.innerHTML = '' }
+// Le finestre aggiungono un passo nella cronologia: il tasto "indietro" del telefono le chiude invece di uscire dall'app
+let modalPushed = false, ignorePop = false;
+function modal(html, mount) {
+  const m = $('#modal'); m.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><button class="sx" data-act="close" aria-label="Chiudi">×</button>${html}</div>`;
+  if (!modalPushed) { history.pushState({ modal: 1 }, '', location.hash || '#' + S.tab); modalPushed = true }
+  m.hidden = false; m.scrollTop = 0; mount && mount(m)
+}
+function hideModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = '' }
+function close() {
+  hideModal();
+  if (modalPushed) setTimeout(() => { if ($('#modal').hidden && modalPushed) { modalPushed = false; ignorePop = true; history.back() } }, 0)
+}
+addEventListener('popstate', () => {
+  if (ignorePop) { ignorePop = false; return }
+  if (modalPushed) { modalPushed = false; hideModal(); return }
+  const t = location.hash.slice(1) || 'settimana'; if (TABS.includes(t) && t !== S.tab) { S.tab = t; render(); window.scrollTo(0, 0) }
+});
 const E = (f, n) => f.elements[n];
 const acts = (label = 'Salva') => `<div class="acts"><button type="button" class="bg" data-act="close">Annulla</button><button class="bp">${label}</button></div>`;
 
@@ -627,7 +642,7 @@ function namesModal() {
 }
 
 let tt; function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => el.classList.remove('show'), 2800) }
-function go(t) { if (!TABS.includes(t)) t = 'settimana'; S.tab = t; if (location.hash.slice(1) !== t) history.replaceState(null, '', '#' + t); render(); window.scrollTo(0, 0) }
+function go(t) { if (!TABS.includes(t)) t = 'settimana'; if (t === S.tab) { window.scrollTo({ top: 0, behavior: 'smooth' }); return } S.tab = t; history.pushState(null, '', '#' + t); render(); window.scrollTo(0, 0) }
 
 /* ---------- eventi ---------- */
 document.addEventListener('click', e => {
@@ -654,7 +669,7 @@ $('#q').addEventListener('input', e => { S.q = e.target.value; renderDisp() });
 $('#rq').addEventListener('input', e => { S.rq = e.target.value; renderRic() });
 $('#onlycan').addEventListener('change', e => { S.onlyCan = e.target.checked; renderRic() });
 $('#spadd').addEventListener('submit', e => { e.preventDefault(); const p = parseLine($('#spin').value); if (!p) return; addToSpesa([{ name: p.n, qty: p.q, unit: p.u === 'qb' ? 'pz' : p.u }]); $('#spin').value = '' });
-addEventListener('hashchange', () => { const t = location.hash.slice(1); if (TABS.includes(t) && t !== S.tab) { S.tab = t; render() } });
+
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').hidden) close() });
 
 /* ---------- dati ---------- */
