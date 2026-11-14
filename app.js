@@ -333,25 +333,43 @@ function ricEdit(r) {
 
 /* ---------- Gemini (facoltativo) ---------- */
 const GBASE = 'https://generativelanguage.googleapis.com/v1beta/';
-async function gErr(r) { let m = ''; try { m = (await r.json()).error.message || '' } catch (e) { } const k = /api key|api_key|permission|denied/i.test(m); return new Error(r.status === 429 ? 'troppe richieste a Gemini, riprova tra un minuto' : k ? 'chiave Gemini non valida o non abilitata' : `Gemini ${r.status}${m ? ': ' + m : ''}`) }
-async function pickModel(fresh) {
-  const saved = LS.get('gmodel', ''); if (saved && saved !== 'gemini-2.5-flash') return saved;
-  const c = LS.get('gauto', null); if (!fresh && c && c.m && Date.now() - c.t < 3 * 864e5) return c.m;
-  const r = await fetch(`${GBASE}models?pageSize=1000&key=${encodeURIComponent(gkey())}`); if (!r.ok) throw await gErr(r);
+async function gErr(r) { let m = ''; try { m = (await r.json()).error.message || '' } catch (e) { } const k = /api key|api_key|permission|denied/i.test(m); return new Error(r.status === 429 ? 'troppe richieste a Gemini, riprova tra un minuto' : r.status === 503 ? 'Gemini 503: modello sovraccarico' : k ? 'chiave Gemini non valida o non abilitata' : `Gemini ${r.status}${m ? ': ' + m : ''}`) }
+const isCustom = () => { const m = LS.get('gmodel', ''); return m && m !== 'gemini-2.5-flash' ? m : '' };
+async function modelList(fresh) {
+  if (isCustom()) return [isCustom()];
+  const c = LS.get('gauto2', null); if (!fresh && c && c.list && Date.now() - c.t < 3 * 864e5) return c.list;
+  const r = await gfetch(`${GBASE}models?pageSize=1000&key=${encodeURIComponent(gkey())}`, null, 15000); if (!r.ok) throw await gErr(r);
   const j = await r.json(); const ok = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace(/^models\//, ''));
-  const cand = ok.map(n => { const m = n.match(/^gemini-(\d+(?:\.\d+)?)-flash(-lite)?$/); return m ? { n, v: parseFloat(m[1]), lite: !!m[2] } : null }).filter(Boolean).sort((a, b) => (a.lite - b.lite) || (b.v - a.v));
-  const m = cand.length ? cand[0].n : ok.includes('gemini-flash-latest') ? 'gemini-flash-latest' : ok.find(n => /flash/.test(n) && !/tts|image|live|audio|embed/.test(n));
-  if (!m) throw new Error('nessun modello Gemini disponibile per questa chiave');
-  LS.set('gauto', { m, t: Date.now() }); return m
+  const cand = ok.map(n => { const m = n.match(/^gemini-(\d+(?:\.\d+)?)-flash(-lite)?$/); return m ? { n, v: parseFloat(m[1]), lite: !!m[2] } : null }).filter(Boolean).sort((a, b) => (b.v - a.v) || (a.lite - b.lite));
+  // il Flash più recente, poi il Lite più recente, poi gli altri dal più nuovo
+  const best = cand.find(x => !x.lite), lite = cand.find(x => x.lite);
+  const list = [...new Set([best && best.n, lite && lite.n, ...cand.map(x => x.n), ok.includes('gemini-flash-latest') ? 'gemini-flash-latest' : null].filter(Boolean))].slice(0, 5);
+  if (!list.length) throw new Error('nessun modello Gemini disponibile per questa chiave');
+  LS.set('gauto2', { list, t: Date.now() }); return list
 }
-async function gemini(parts, retry = true) {
-  const model = await pickModel(false);
-  const r = await fetch(`${GBASE}models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(gkey())}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json' } }) });
-  if (r.status === 404 && retry && !(LS.get('gmodel', '') && LS.get('gmodel', '') !== 'gemini-2.5-flash')) { LS.del('gauto'); return gemini(parts, false) }
-  if (!r.ok) throw await gErr(r);
-  const j = await r.json(); const t = (j.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
-  if (!t) throw new Error('Gemini non ha risposto (' + (j.candidates?.[0]?.finishReason || j.promptFeedback?.blockReason || 'vuoto') + ')');
-  const a = t.indexOf('{'), b = t.lastIndexOf('}'); return JSON.parse(a >= 0 && b > a ? t.slice(a, b + 1) : t)
+async function gfetch(url, body, ms) {
+  const ac = new AbortController(); const t = setTimeout(() => ac.abort(), ms);
+  try { return await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ac.signal } : { signal: ac.signal }) }
+  catch (e) { throw new Error(e.name === 'AbortError' ? 'Gemini non risponde (tempo scaduto)' : 'nessuna connessione') }
+  finally { clearTimeout(t) }
+}
+async function gemini(parts, onModel) {
+  let list = await modelList(false), last = null, refreshed = false;
+  const pref = LS.get('gok', ''); if (pref && list.includes(pref)) list = [pref, ...list.filter(m => m !== pref)];
+  for (let i = 0; i < list.length; i++) {
+    const model = list[i]; onModel && onModel(model);
+    let r;
+    try { r = await gfetch(`${GBASE}models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(gkey())}`, { contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json' } }, 30000) }
+    catch (e) { last = e; continue }
+    if (r.status === 404 && !refreshed && !isCustom()) { refreshed = true; LS.del('gauto2'); list = await modelList(true); i = -1; continue }
+    if ([429, 500, 503, 504].includes(r.status)) { last = await gErr(r); continue }
+    if (!r.ok) throw await gErr(r);
+    const j = await r.json(); const t = (j.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
+    if (!t) { last = new Error('Gemini non ha risposto (' + (j.candidates?.[0]?.finishReason || j.promptFeedback?.blockReason || 'vuoto') + ')'); continue }
+    LS.set('gok', model);
+    const a = t.indexOf('{'), b = t.lastIndexOf('}'); return JSON.parse(a >= 0 && b > a ? t.slice(a, b + 1) : t)
+  }
+  throw new Error(last && /503|429|high demand|troppe/i.test(last.message) ? 'Gemini in questo momento è sovraccarico su tutti i modelli: riprova tra qualche minuto' : (last && last.message) || 'Gemini non risponde')
 }
 
 function aiModal() {
@@ -550,13 +568,13 @@ function settingsModal() {
   <h3>Invita la famiglia</h3><p class="sub">Manda questo link agli altri: aprendolo entrano subito nella vostra famiglia. Chi ha il link può vedere e modificare i dati, quindi mandalo solo a loro.</p><button class="bp wide" id="inv">Condividi il link di invito</button>
   <h3>Nomi</h3><button class="bg wide" id="nm">Cambia i nomi della famiglia</button>
   <h3>Gemini <small style="font-weight:400;color:var(--mut)">facoltativo</small></h3><p class="sub">Con una chiave gratuita di Google Gemini l'app legge meglio gli scontrini e propone ricette con quello che avete. Creala su <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Resta salvata solo su questo telefono.</p>
-  <form id="gf"><label>Chiave API<input name="k" type="password" autocomplete="off" value="${esc(gkey())}" placeholder="AIza…"></label><label>Modello <small>lascia vuoto: lo sceglie l'app</small><input name="m" value="${esc(LS.get('gmodel', '') === 'gemini-2.5-flash' ? '' : LS.get('gmodel', ''))}" placeholder="automatico${LS.get('gauto', null) ? ' (' + esc(LS.get('gauto', null).m) + ')' : ''}" autocomplete="off"></label><p class="hint" id="gres"></p><div class="acts">${gkey() ? '<button type="button" class="bd" id="gdel">Togli la chiave</button>' : ''}<button type="button" class="bg" id="gtest">Prova</button><button class="bp">Salva</button></div></form>
+  <form id="gf"><label>Chiave API<input name="k" type="password" autocomplete="off" value="${esc(gkey())}" placeholder="AIza…"></label><label>Modello <small>lascia vuoto: lo sceglie l'app</small><input name="m" value="${esc(LS.get('gmodel', '') === 'gemini-2.5-flash' ? '' : LS.get('gmodel', ''))}" placeholder="automatico${LS.get('gok', '') ? ' (ora ' + esc(LS.get('gok', '')) + ')' : ''}" autocomplete="off"></label><p class="hint" id="gres"></p><div class="acts">${gkey() ? '<button type="button" class="bd" id="gdel">Togli la chiave</button>' : ''}<button type="button" class="bg" id="gtest">Prova</button><button class="bp">Salva</button></div></form>
   <h3>Questo telefono</h3><button class="bd" id="out" style="margin:0">Esci dalla famiglia su questo telefono</button>`, m => {
     m.querySelector('#inv').onclick = () => shareText('Cosa si mangia?', 'Entra nella nostra app della cucina: ' + inviteLink());
     m.querySelector('#nm').onclick = namesModal;
-    const gsave = f => { LS.set('gkey', E(f, 'k').value.trim()); LS.set('gmodel', E(f, 'm').value.trim()); LS.del('gauto') };
+    const gsave = f => { LS.set('gkey', E(f, 'k').value.trim()); LS.set('gmodel', E(f, 'm').value.trim()); LS.del('gauto2'); LS.del('gok') };
     m.querySelector('#gf').onsubmit = e => { e.preventDefault(); gsave(e.target); close(); render(); toast(gkey() ? 'Gemini attivo' : 'Salvato') };
-    m.querySelector('#gtest').onclick = async () => { const f = m.querySelector('#gf'), out = m.querySelector('#gres'); gsave(f); if (!gkey()) { out.textContent = 'Incolla prima la chiave.'; return } out.textContent = 'Provo…'; try { const r = await gemini([{ text: 'Rispondi solo con JSON: {"ok":true}' }]); out.textContent = r && r.ok ? `Funziona, modello ${LS.get('gmodel', '') || LS.get('gauto', {}).m}.` : 'Risposta strana, ma la chiave funziona.'; render() } catch (err) { out.textContent = 'Non funziona: ' + (err.message || err) } };
+    m.querySelector('#gtest').onclick = async () => { const f = m.querySelector('#gf'), out = m.querySelector('#gres'); gsave(f); if (!gkey()) { out.textContent = 'Incolla prima la chiave.'; return } out.textContent = 'Provo…'; try { const r = await gemini([{ text: 'Rispondi solo con JSON: {"ok":true}' }], md => out.textContent = `Provo con ${md}…`); out.textContent = r && r.ok ? `Funziona, modello ${LS.get('gok', '')}.` : 'Risposta strana, ma la chiave funziona.'; render() } catch (err) { out.textContent = 'Non funziona: ' + (err.message || err) } };
     const gd = m.querySelector('#gdel'); if (gd) gd.onclick = () => { LS.del('gkey'); close(); render() };
     let armed = false; m.querySelector('#out').onclick = e => { if (!armed) { armed = true; e.target.textContent = 'Sicuro? Tocca di nuovo'; return } LS.del('fam'); LS.del('me'); location.href = location.pathname }
   })
