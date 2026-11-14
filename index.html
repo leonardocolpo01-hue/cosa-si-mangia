@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#d8432a">
+<meta name="description" content="Chi mangia a casa, cosa c'è in frigo, cosa cucinare e cosa comprare: l'app della cucina di famiglia.">
+<title>Cosa si mangia?</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div><h1>Cosa si <span>mangia?</span></h1><button id="who" data-act="who">Chi sei?</button><button class="gear" data-act="settings" aria-label="Impostazioni"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div></header>
+<main>
+<div id="note"></div>
+<section id="v-setup" hidden></section>
+<section id="v-settimana" hidden><div id="sett"></div></section>
+<section id="v-dispensa" hidden>
+  <h2 class="sec">Dispensa e frigo</h2>
+  <div class="bar-top"><input id="q" class="srch" type="search" placeholder="Cerca in casa…" autocomplete="off"><button class="bp" data-act="dadd">Aggiungi</button><button class="bg" data-act="scan">Scontrino</button><button class="bg" data-act="dbulk">Più cose</button></div>
+  <div class="segs" id="lgs"></div>
+  <ul class="list" id="dlist"></ul>
+  <div class="spf"><button class="bg keep" data-act="keepdisp"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></svg>Manda a Keep</button></div>
+</section>
+<section id="v-ricette" hidden>
+  <h2 class="sec">Ricette</h2>
+  <div class="bar-top"><input id="rq" class="srch" type="search" placeholder="Cerca per nome o ingrediente…" autocomplete="off"><button class="bp" data-act="rnew">Nuova</button><button class="bg" data-act="ai" id="aib">Idee</button></div>
+  <label class="ck"><input type="checkbox" id="onlycan"> Solo quelle che posso fare con quello che c'è</label>
+  <ul class="list" id="rlist"></ul>
+</section>
+<section id="v-spesa" hidden>
+  <h2 class="sec">Lista della spesa</h2>
+  <form id="spadd" class="bar-top"><input id="spin" class="srch" placeholder="Es. 1 kg mele, 6 uova, pane" autocomplete="off"><button class="bp">Aggiungi</button></form>
+  <ul class="list" id="slist"></ul>
+  <div class="spf" id="spf"></div>
+  <div class="spf"><button class="bg keep" data-act="keepspesa"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></svg>Manda a Keep</button><button class="bg" data-act="scan">Scontrino</button></div>
+  <p class="hint">In Keep, per avere le caselle da spuntare: apri la nota, tocca ⋮ e scegli "Mostra caselle di controllo".</p>
+</section>
+</main>
+<nav id="nav" hidden><div>
+<button data-act="tab" data-v="settimana"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Settimana</button>
+<button data-act="tab" data-v="dispensa"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M5 10h14M9 5.5v2M9 13v3"/></svg>Dispensa</button>
+<button data-act="tab" data-v="ricette"><svg viewBox="0 0 24 24"><path d="M3 11h18v3a6 6 0 0 1-6 6H9a6 6 0 0 1-6-6z"/><path d="M8 7c0-1.2 1-1.8 1-3M12 7c0-1.2 1-1.8 1-3M16 7c0-1.2 1-1.8 1-3"/></svg>Ricette</button>
+<button data-act="tab" data-v="spesa"><svg viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h11L21 7H6.2"/><circle cx="9" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></svg>Spesa<span class="bdg" id="bdg" hidden></span></button>
+</div></nav>
+<div id="modal" hidden></div>
+<div id="toast" role="status"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
