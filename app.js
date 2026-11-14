@@ -341,9 +341,9 @@ async function modelList(fresh) {
   const r = await gfetch(`${GBASE}models?pageSize=1000&key=${encodeURIComponent(gkey())}`, null, 15000); if (!r.ok) throw await gErr(r);
   const j = await r.json(); const ok = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace(/^models\//, ''));
   const cand = ok.map(n => { const m = n.match(/^gemini-(\d+(?:\.\d+)?)-flash(-lite)?$/); return m ? { n, v: parseFloat(m[1]), lite: !!m[2] } : null }).filter(Boolean).sort((a, b) => (b.v - a.v) || (a.lite - b.lite));
-  // il Flash più recente, poi il Lite più recente, poi gli altri dal più nuovo
+  // prima il Flash-Lite più recente (veloce e meno affollato), poi il Flash, poi gli altri dal più nuovo
   const best = cand.find(x => !x.lite), lite = cand.find(x => x.lite);
-  const list = [...new Set([best && best.n, lite && lite.n, ...cand.map(x => x.n), ok.includes('gemini-flash-latest') ? 'gemini-flash-latest' : null].filter(Boolean))].slice(0, 5);
+  const list = [...new Set([lite && lite.n, best && best.n, ...cand.map(x => x.n), ok.includes('gemini-flash-latest') ? 'gemini-flash-latest' : null].filter(Boolean))].slice(0, 5);
   if (!list.length) throw new Error('nessun modello Gemini disponibile per questa chiave');
   LS.set('gauto2', { list, t: Date.now() }); return list
 }
@@ -358,9 +358,14 @@ async function gemini(parts, onModel) {
   const pref = LS.get('gok', ''); if (pref && list.includes(pref)) list = [pref, ...list.filter(m => m !== pref)];
   for (let i = 0; i < list.length; i++) {
     const model = list[i]; onModel && onModel(model);
-    let r;
-    try { r = await gfetch(`${GBASE}models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(gkey())}`, { contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json' } }, 30000) }
-    catch (e) { last = e; continue }
+    let r; const url = `${GBASE}models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(gkey())}`;
+    const gc = { responseMimeType: 'application/json' };
+    const v = parseFloat((model.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
+    if (v >= 3 && !/lite/.test(model)) gc.thinkingConfig = { thinkingLevel: 'minimal' }; // risposte rapide, senza "ragionamento" lungo
+    try {
+      r = await gfetch(url, { contents: [{ role: 'user', parts }], generationConfig: gc }, 30000);
+      if (r.status === 400 && gc.thinkingConfig) { delete gc.thinkingConfig; r = await gfetch(url, { contents: [{ role: 'user', parts }], generationConfig: gc }, 30000) }
+    } catch (e) { last = e; continue }
     if (r.status === 404 && !refreshed && !isCustom()) { refreshed = true; LS.del('gauto2'); list = await modelList(true); i = -1; continue }
     if ([429, 500, 503, 504].includes(r.status)) { last = await gErr(r); continue }
     if (!r.ok) throw await gErr(r);
