@@ -3,6 +3,7 @@ import { firebaseConfig as CFG } from './config.js';
 
 const FB = 'https://www.gstatic.com/firebasejs/10.12.2/';
 const TESS = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+const ZXING = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -20,8 +21,27 @@ const STAPLES = ['sale', 'pepe', 'acqua', 'sale fino', 'sale grosso'];
 const TABS = ['settimana', 'dispensa', 'ricette', 'spesa'];
 const FRIGO_KW = ['latte', 'yogurt', 'formagg', 'mozzarell', 'burro', 'uova', 'uovo', 'prosciutt', 'salam', 'carne', 'pollo', 'pesce', 'panna', 'ricott', 'parmigian', 'grana', 'insalat', 'zucchin', 'affettat', 'wurstel', 'tofu', 'mascarpone', 'speck', 'pancett', 'tacchin', 'manzo', 'maiale', 'salmone', 'stracchino', 'philadelphia', 'pesto', 'lievito di birra', 'macinat', 'salsicc', 'frutta', 'verdur', 'carot', 'spinaci', 'limon', 'mortadell', 'bresaola', 'fiordilatte', 'scamorz', 'gorgonzol', 'asiago'];
 const FREEZER_KW = ['surgel', 'gelato', 'bastoncini', 'ghiaccio', 'congelat', 'frozen'];
+const CATS = [['carbo', 'Carboidrati'], ['verdura', 'Verdura'], ['frutta', 'Frutta'], ['proteine', 'Proteine'], ['latticini', 'Latticini'], ['condimenti', 'Condimenti'], ['dolci', 'Dolci e snack'], ['bevande', 'Bevande'], ['altro', 'Altro']];
+const CAT_L = Object.fromEntries(CATS);
+const CAT_S = { carbo: 'Carbo', condimenti: 'Condim.', dolci: 'Dolci' };
+const CAT_KW = {
+  carbo: ['pasta', 'spaghett', 'penne', 'fusill', 'rigaton', 'maccheron', 'tagliatell', 'lasagn', 'tortellin', 'raviol', 'gnocch', 'riso', 'pane', 'panin', 'farina', 'cous cous', 'couscous', 'orzo', 'farro', 'patat', 'cracker', 'grissin', 'fette biscottate', 'piadin', 'pizza', 'polenta', 'cereali', 'avena', 'fiocchi d avena', 'quinoa', 'pangrattato', 'tramezzin', 'focacc'],
+  verdura: ['carot', 'zucchin', 'pomodor', 'insalat', 'lattuga', 'spinac', 'cipoll', 'aglio', 'peperon', 'melanzan', 'broccol', 'cavol', 'cavolfior', 'finocch', 'sedan', 'piselli', 'fagiolini', 'funghi', 'zucca', 'porr', 'radicchi', 'rucola', 'cetriol', 'asparag', 'carciof', 'verdur', 'minestrone', 'basilic', 'prezzemol', 'verza', 'bietol', 'cime di rapa', 'mais', 'olive'],
+  frutta: ['mela', 'mele', 'banan', 'aranc', 'pera', 'pere', 'fragol', 'uva', 'kiwi', 'limon', 'mandarin', 'clementin', 'pesca', 'pesche', 'albicocc', 'ciliegi', 'anguri', 'melon', 'ananas', 'frutta', 'prugn', 'mirtill', 'lampon', 'avocado', 'pompelm', 'cachi', 'fichi', 'noci', 'mandorl', 'nocciol'],
+  proteine: ['carne', 'pollo', 'petto di pollo', 'manzo', 'maiale', 'vitell', 'tacchin', 'salsicc', 'macinat', 'hamburger', 'bistecc', 'cotolett', 'arrost', 'prosciutt', 'salam', 'speck', 'bresaol', 'mortadell', 'wurstel', 'pancett', 'affettat', 'pesce', 'salmon', 'tonno', 'merluzz', 'orata', 'branzin', 'gamber', 'calamar', 'cozze', 'vongol', 'sgombr', 'uova', 'uovo', 'legum', 'fagiol', 'ceci', 'lenticchi', 'tofu', 'seitan', 'bastoncini di pesce'],
+  latticini: ['latte', 'yogurt', 'formagg', 'mozzarell', 'burro', 'panna', 'ricott', 'parmigian', 'grana', 'stracchin', 'mascarpon', 'scamorz', 'gorgonzol', 'asiago', 'philadelphia', 'fiordilatte', 'emmental', 'pecorin', 'provol', 'feta', 'kefir', 'burrata', 'crescenza', 'fontina'],
+  condimenti: ['olio', 'aceto', 'sale', 'pepe', 'zucchero', 'passata', 'pelati', 'polpa di pomodoro', 'concentrato', 'sugo', 'pesto', 'maionese', 'ketchup', 'senape', 'spezie', 'origano', 'rosmarin', 'dado', 'brodo', 'salsa', 'lievito', 'curry', 'paprika', 'cannella', 'noce moscata', 'besciamella'],
+  dolci: ['biscott', 'cioccolat', 'merendin', 'nutella', 'marmellat', 'confettur', 'crostat', 'torta', 'gelato', 'caramell', 'patatine', 'snack', 'wafer', 'miele', 'brioche', 'cornett', 'budino', 'pandoro', 'panettone', 'crema spalmabile'],
+  bevande: ['acqua', 'succo', 'birra', 'vino', 'coca', 'aranciata', 'bibita', 'caffe', 'tisana', 'the', 'spremuta', 'latte di soia', 'bevanda', 'prosecco', 'spritz']
+};
+function guessCat(name) {
+  const n = ' ' + norm(name); let best = 'altro', len = 0;
+  for (const [c, keys] of Object.entries(CAT_KW)) for (const k of keys) if (k.length > len && n.includes(' ' + k)) { best = c; len = k.length }
+  return best
+}
+const catOf = d => CAT_L[d.cat] ? d.cat : guessCat(d.name);
 
-const S = { members: null, pres: {}, menu: {}, disp: [], ric: [], spesa: [], week: 0, me: LS.get('me', null), tab: TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'settimana', luogo: 'tutto', q: '', rq: '', onlyCan: false, note: '', phase: 'start', err: '', cfg: null, fam: '', asked: false };
+const S = { members: null, pres: {}, menu: {}, disp: [], ric: [], spesa: [], week: 0, me: LS.get('me', null), tab: TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'settimana', luogo: 'tutto', cat: 'tutte', q: '', rq: '', onlyCan: false, note: '', phase: 'start', err: '', cfg: null, fam: '', asked: false };
 let F = null; // { fs, db, fam }
 let FBX = null; // { app, fs, db, authMod, auth }
 
@@ -110,7 +130,7 @@ function addToSpesa(items) {
 function mergeDisp(x) {
   const u = x.unit || 'pz'; const ex = S.disp.find(d => same(d.name, x.name) && (d.unit || 'pz') === u && (!x.luogo || d.luogo === x.luogo));
   if (ex) { const qty = ex.qty == null || x.qty == null ? (x.qty ?? ex.qty ?? null) : round(Math.max(0, ex.qty) + x.qty); save('dispensa', ex.id, { ...ex, qty, scad: x.scad || ex.scad || '' }) }
-  else save('dispensa', null, { name: x.name, qty: x.qty ?? null, unit: u, luogo: x.luogo || guessLuogo(x.name), scad: x.scad || '' })
+  else save('dispensa', null, { name: x.name, qty: x.qty ?? null, unit: u, luogo: x.luogo || guessLuogo(x.name), cat: CAT_L[x.cat] ? x.cat : guessCat(x.name), scad: x.scad || '' })
 }
 
 /* ---------- render ---------- */
@@ -193,16 +213,18 @@ function renderSett() {
 }
 
 function renderDisp() {
-  const q = norm(S.q); const L = S.disp.filter(d => (S.luogo === 'tutto' || d.luogo === S.luogo) && (!q || norm(d.name).includes(q))).sort((a, b) => (a.scad || '9999').localeCompare(b.scad || '9999') || String(a.name).localeCompare(b.name, 'it'));
+  const q = norm(S.q); const inL = d => S.luogo === 'tutto' || d.luogo === S.luogo; const L = S.disp.filter(d => inL(d) && (S.cat === 'tutte' || catOf(d) === S.cat) && (!q || norm(d.name).includes(q))).sort((a, b) => (a.scad || '9999').localeCompare(b.scad || '9999') || String(a.name).localeCompare(b.name, 'it'));
   const cnt = l => S.disp.filter(d => l === 'tutto' || d.luogo === l).length;
   $('#lgs').innerHTML = [['tutto', 'Tutto'], ...LUOGHI].map(([k, l]) => `<button class="seg${S.luogo === k ? ' on' : ''}" data-act="luogo" data-v="${k}">${l} <small>${cnt(k)}</small></button>`).join('');
+  const inLoc = S.disp.filter(inL); const cc = c => inLoc.filter(d => catOf(d) === c).length;
+  $('#cats').innerHTML = inLoc.length ? `<button class="seg${S.cat === 'tutte' ? ' on' : ''}" data-act="cat" data-v="tutte">Tutte</button>` + CATS.filter(([k]) => cc(k) || S.cat === k).map(([k, l]) => `<button class="seg${S.cat === k ? ' on' : ''}" data-act="cat" data-v="${k}">${l} <small>${cc(k)}</small></button>`).join('') : '';
   $('#dlist').innerHTML = L.length ? L.map(d => {
     const z = typeof d.qty === 'number' && d.qty <= 0; const dd = d.scad ? daysTo(d.scad) : null;
-    return `<li class="it${z ? ' zero' : ''}"><button class="nm" data-act="dedit" data-id="${d.id}"><b>${esc(d.name)}</b><small>${S.luogo === 'tutto' ? esc(LUOGO_L[d.luogo] || '') : ''}${d.scad ? ` <span class="sc${dd < 0 ? ' bad' : dd <= 3 ? ' warn' : ''}">${dd < 0 ? 'scaduto' : 'scade ' + scadTxt(d.scad)}</span>` : ''}</small></button>
+    return `<li class="it${z ? ' zero' : ''}"><button class="nm" data-act="dedit" data-id="${d.id}"><b>${esc(d.name)}</b><small>${[S.luogo === 'tutto' ? LUOGO_L[d.luogo] : '', S.cat === 'tutte' ? CAT_L[catOf(d)] : ''].filter(Boolean).map(esc).join(' · ')}${d.scad ? ` <span class="sc${dd < 0 ? ' bad' : dd <= 3 ? ' warn' : ''}">${dd < 0 ? 'scaduto' : 'scade ' + scadTxt(d.scad)}</span>` : ''}</small></button>
     ${z ? '<span class="fin">Finito</span><button class="sm" data-act="d2spesa" data-id="' + d.id + '">In spesa</button>' : ''}
     ${d.unit === 'qb' || d.qty == null ? `<button class="sm" data-act="dzero" data-id="${d.id}">Finito</button>` : `<span class="qt"><button class="ib" data-act="dq" data-id="${d.id}" data-v="-1" aria-label="Meno ${esc(d.name)}">−</button><span>${fmtQ(d.qty, d.unit)}</span><button class="ib" data-act="dq" data-id="${d.id}" data-v="1" aria-label="Più ${esc(d.name)}">+</button></span>`}</li>`
   }).join('')
-    : `<li class="empty">${S.disp.length ? 'Niente qui.' : 'La dispensa è vuota. Fotografa uno scontrino, oppure con "Più cose" scrivi tutto quello che c\'è, una cosa per riga.'}</li>`
+    : `<li class="empty">${S.disp.length ? 'Niente qui.' : 'La dispensa è vuota. Fotografa un prodotto o uno scontrino, oppure con "Più cose" scrivi tutto quello che c\'è, una cosa per riga.'}</li>`
 }
 
 function renderRic() {
@@ -230,10 +252,11 @@ function dispModal(d) {
   modal(`<h2>${isNew ? 'Aggiungi in casa' : 'Modifica'}</h2><form id="f"><label>Cosa<input name="name" required value="${esc(d.name)}" autocomplete="off" placeholder="Es. latte, pasta, uova"></label>
   <div class="row"><label>Quantità<input name="qty" type="number" inputmode="decimal" step="any" min="0" value="${d.qty ?? ''}"></label><label>Unità<select name="unit">${UNITS.map(u => `<option${u === (d.unit || 'pz') ? ' selected' : ''}>${u}</option>`).join('')}</select></label></div>
   <div class="row"><label>Dove<select name="luogo"><option value="">Lo decide l'app</option>${LUOGHI.map(([k, l]) => `<option value="${k}"${k === d.luogo ? ' selected' : ''}>${l}</option>`).join('')}</select></label><label>Scadenza<input name="scad" type="date" value="${esc(d.scad || '')}"></label></div>
+  <label>Categoria<select name="cat"><option value="">Lo decide l'app</option>${CATS.map(([k, l]) => `<option value="${k}"${k === d.cat ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
   <div class="acts">${isNew ? '' : '<button type="button" class="bd" id="del">Elimina</button>'}<button type="button" class="bg" data-act="close">Annulla</button>${isNew ? '<button class="bg" value="more">Salva e un altro</button>' : ''}<button class="bp" value="ok">Salva</button></div></form>`, m => {
     m.querySelector('#f').onsubmit = e => {
       e.preventDefault(); const f = e.target; const name = E(f, 'name').value.trim(); if (!name) return; const qs = E(f, 'qty').value; const luogo = E(f, 'luogo').value;
-      save('dispensa', isNew ? null : d.id, { ...(isNew ? {} : d), name, qty: qs === '' ? null : parseFloat(qs), unit: E(f, 'unit').value, luogo: luogo || guessLuogo(name), scad: E(f, 'scad').value || '' });
+      save('dispensa', isNew ? null : d.id, { ...(isNew ? {} : d), name, qty: qs === '' ? null : parseFloat(qs), unit: E(f, 'unit').value, luogo: luogo || guessLuogo(name), cat: E(f, 'cat').value || guessCat(name), scad: E(f, 'scad').value || '' });
       if (e.submitter && e.submitter.value === 'more') { toast(name + ' aggiunto'); dispModal(); if (luogo) E($('#f'), 'luogo').value = luogo } else close()
     };
     const x = m.querySelector('#del'); if (x) x.onclick = () => { del('dispensa', d.id); close() }
@@ -376,7 +399,7 @@ function parseReceipt(text) {
   const map = new Map(); out.forEach(i => { const q = round(i.q * i.mult); const k = norm(i.n) + '|' + i.u; const e = map.get(k); if (e) e.q = round(e.q + q); else map.set(k, { n: i.n, q, u: i.u }) });
   return [...map.values()]
 }
-const RECEIPT_PROMPT = 'Questa è la foto di uno scontrino di un supermercato italiano. Elenca solo i prodotti comprati: niente totali, sconti, IVA, pagamenti, buste. Per ogni prodotto dai: "n" = nome generico breve in italiano minuscolo, come lo chiamerebbe una famiglia in dispensa (es. "latte", "pasta", "mozzarella", "petto di pollo"); "q" = quantità totale come numero (peso o volume della confezione moltiplicato per i pezzi comprati, oppure numero di pezzi); "u" = una tra g, kg, ml, l, pz, conf; "luogo" = una tra frigo, dispensa, freezer. Rispondi SOLO con JSON: {"prodotti":[{"n":"latte","q":1,"u":"l","luogo":"frigo"}]}';
+const RECEIPT_PROMPT = 'Questa è la foto di uno scontrino di un supermercato italiano. Elenca solo i prodotti comprati: niente totali, sconti, IVA, pagamenti, buste. Per ogni prodotto dai: "n" = nome generico breve in italiano minuscolo, come lo chiamerebbe una famiglia in dispensa (es. "latte", "pasta", "mozzarella", "petto di pollo"); "q" = quantità totale come numero (peso o volume della confezione moltiplicato per i pezzi comprati, oppure numero di pezzi); "u" = una tra g, kg, ml, l, pz, conf; "luogo" = una tra frigo, dispensa, freezer; "cat" = una tra carbo, verdura, frutta, proteine, latticini, condimenti, dolci, bevande, altro. Rispondi SOLO con JSON: {"prodotti":[{"n":"latte","q":1,"u":"l","luogo":"frigo","cat":"latticini"}]}';
 
 function scanModal() {
   modal(`<h2>Scontrino</h2><p class="sub">Fotografa lo scontrino intero, dritto e ben illuminato. Le cose comprate vanno in dispensa e spariscono dalla lista della spesa.</p>
@@ -392,30 +415,112 @@ async function readReceipt(file, out) {
     const { color, gray } = await prep(file); let items = null, raw = '';
     if (gkey()) {
       st('Gemini sta leggendo lo scontrino…');
-      try { const r = await gemini([{ text: RECEIPT_PROMPT }, { inline_data: { mime_type: 'image/jpeg', data: color.split(',')[1] } }]); items = ((r && r.prodotti) || (Array.isArray(r) ? r : [])).filter(x => x && x.n).map(x => ({ n: String(x.n).toLowerCase(), q: x.q == null || x.q === '' ? null : +x.q, u: UNITS.includes(x.u) ? x.u : 'pz', luogo: LUOGO_L[x.luogo] ? x.luogo : guessLuogo(x.n) })) }
+      try { const r = await gemini([{ text: RECEIPT_PROMPT }, { inline_data: { mime_type: 'image/jpeg', data: color.split(',')[1] } }]); items = gItems(r) }
       catch (e) { console.warn(e); toast('Gemini non risponde: leggo sul telefono') }
     }
     if (!items) {
       st('Scarico il lettore di testo (solo la prima volta)…'); const T = await loadTess();
       const res = await T.recognize(gray, 'ita', { logger: mm => { if (mm.status === 'recognizing text') st(`Leggo lo scontrino… ${Math.round(mm.progress * 100)}%`) } });
-      raw = res.data.text; items = parseReceipt(raw).map(x => ({ ...x, luogo: guessLuogo(x.n) }))
+      raw = res.data.text; items = parseReceipt(raw).map(x => ({ ...x, luogo: guessLuogo(x.n), cat: guessCat(x.n) }))
     }
     reviewReceipt(items, raw, out)
   } catch (e) { console.warn(e); out.innerHTML = `<p class="load">Non sono riuscito a leggerlo: ${esc(e.message || e)}. Riprova con una foto più nitida.</p>` }
 }
-function reviewReceipt(items, raw, out) {
-  const row = i => `<div class="rv"><input type="checkbox" class="c" checked aria-label="Includi"><input class="n" value="${esc(i.n)}" aria-label="Nome" placeholder="Nome"><input class="q" type="number" step="any" min="0" inputmode="decimal" value="${i.q ?? ''}" aria-label="Quantità"><select class="u" aria-label="Unità">${UNITS.map(u => `<option${u === i.u ? ' selected' : ''}>${u}</option>`).join('')}</select><select class="l" aria-label="Dove">${LUOGHI.map(([k, l]) => `<option value="${k}"${k === i.luogo ? ' selected' : ''}>${l}</option>`).join('')}</select></div>`;
-  out.innerHTML = `<h3>${items.length ? `Ho trovato ${items.length} prodotti` : 'Non ho trovato prodotti'}</h3><p class="sub">Correggi i nomi come li chiamate voi (es. "latte" invece di "latte ps uht") e togli la spunta a quello che non va in dispensa.</p><div id="rvs">${items.map(row).join('')}</div>
+function reviewReceipt(items, raw, out, opts = {}) {
+  const row = i => `<div class="rv"><input type="checkbox" class="c" checked aria-label="Includi"><input class="n" value="${esc(i.n)}" aria-label="Nome" placeholder="Nome"><select class="k" aria-label="Categoria">${CATS.map(([k, l]) => `<option value="${k}"${k === (i.cat || guessCat(i.n)) ? ' selected' : ''}>${CAT_S[k] || l}</option>`).join('')}</select><input class="q" type="number" step="any" min="0" inputmode="decimal" value="${i.q ?? ''}" aria-label="Quantità"><select class="u" aria-label="Unità">${UNITS.map(u => `<option${u === i.u ? ' selected' : ''}>${u}</option>`).join('')}</select><select class="l" aria-label="Dove">${LUOGHI.map(([k, l]) => `<option value="${k}"${k === i.luogo ? ' selected' : ''}>${l}</option>`).join('')}</select>${i.info ? `<small style="grid-column:2/6;color:var(--mut)">${esc(i.info)}</small>` : ''}</div>`;
+  out.innerHTML = `${opts.head || `<h3>${items.length ? `Ho trovato ${items.length} prodotti` : 'Non ho trovato prodotti'}</h3><p class="sub">Correggi i nomi come li chiamate voi (es. "latte" invece di "latte ps uht") e togli la spunta a quello che non va in dispensa.</p>`}<div id="rvs">${items.map(row).join('')}</div>
   <p><button class="bg" id="addr" type="button">+ Aggiungi una riga</button></p>
   <label class="ck"><input type="checkbox" id="rsp" checked> Togli dalla spesa quello che ho comprato</label>
-  <button class="bp wide" id="rok">Metti in dispensa</button>${raw ? `<details><summary>Testo letto dallo scontrino</summary><pre>${esc(raw)}</pre></details>` : ''}`;
+  <button class="bp wide" id="rok">${opts.ok || 'Metti in dispensa'}</button>${raw ? `<details><summary>Testo letto dallo scontrino</summary><pre>${esc(raw)}</pre></details>` : ''}`;
   out.querySelector('#addr').onclick = () => out.querySelector('#rvs').insertAdjacentHTML('beforeend', row({ n: '', q: 1, u: 'pz', luogo: 'dispensa' }));
   out.querySelector('#rok').onclick = () => {
-    const rs = [...out.querySelectorAll('.rv')].filter(r => r.querySelector('.c').checked).map(r => ({ name: r.querySelector('.n').value.trim(), qty: r.querySelector('.q').value === '' ? null : parseFloat(r.querySelector('.q').value), unit: r.querySelector('.u').value, luogo: r.querySelector('.l').value })).filter(x => x.name);
+    const rs = [...out.querySelectorAll('.rv')].filter(r => r.querySelector('.c').checked).map(r => ({ name: r.querySelector('.n').value.trim(), qty: r.querySelector('.q').value === '' ? null : parseFloat(r.querySelector('.q').value), unit: r.querySelector('.u').value, luogo: r.querySelector('.l').value, cat: r.querySelector('.k').value })).filter(x => x.name);
     rs.forEach(mergeDisp); let k = 0;
     if (out.querySelector('#rsp').checked) S.spesa.filter(s => rs.some(x => same(x.name, s.name))).forEach(s => { del('spesa', s.id); k++ });
-    close(); toast(`${rs.length} prodotti in dispensa${k ? `, ${k} tolti dalla spesa` : ''}`)
+    close(); toast(rs.length === 1 ? `${rs[0].name} → ${LUOGO_L[rs[0].luogo]}${k ? ', tolto dalla spesa' : ''}` : `${rs.length} prodotti in dispensa${k ? `, ${k} tolti dalla spesa` : ''}`)
   }
+}
+
+function gItems(r) {
+  return ((r && r.prodotti) || (Array.isArray(r) ? r : [])).filter(x => x && x.n).map(x => ({ n: String(x.n).toLowerCase(), q: x.q == null || x.q === '' ? null : +x.q, u: UNITS.includes(x.u) ? x.u : 'pz', luogo: LUOGO_L[x.luogo] ? x.luogo : guessLuogo(x.n), cat: CAT_L[x.cat] ? x.cat : guessCat(x.n) }))
+}
+
+/* ---------- Foto di un prodotto ---------- */
+let zxP = null;
+function loadZx() { return zxP || (zxP = new Promise((res, rej) => { const s = document.createElement('script'); s.src = ZXING; s.onload = () => res(window.ZXing); s.onerror = () => { zxP = null; rej(new Error('lettore di codici non disponibile')) }; document.head.appendChild(s) })) }
+async function readBarcode(file) {
+  if ('BarcodeDetector' in window) {
+    try { const bd = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] }); const bmp = await createImageBitmap(file); const r = await bd.detect(bmp); if (r[0]) return r[0].rawValue } catch (e) { }
+  }
+  try {
+    const Z = await loadZx(); const hints = new Map(); hints.set(Z.DecodeHintType.TRY_HARDER, true);
+    hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E]);
+    const reader = new Z.BrowserMultiFormatReader(hints); const url = URL.createObjectURL(file);
+    try { const r = await reader.decodeFromImageUrl(url); return r && r.getText() } finally { URL.revokeObjectURL(url) }
+  } catch (e) { return null }
+}
+const OFF_MAP = [
+  [/pasta|spaghetti|noodle|lasagne|gnocchi/, 'carbo', 'pasta'], [/en:rices?\b|risotto/, 'carbo', 'riso'], [/breads|rusks|crispbread|crackers|breadsticks/, 'carbo', null], [/flours?\b/, 'carbo', 'farina'], [/breakfast-cereals|mueslis|oat-flakes/, 'carbo', 'cereali'],
+  [/biscuits|cookies|cakes|pastries|chocolates?|confectioner|candies|snacks|chips|spreads/, 'dolci', null],
+  [/milks?\b|en:milk/, 'latticini', 'latte'], [/yogurts?/, 'latticini', 'yogurt'], [/mozzarella/, 'latticini', 'mozzarella'], [/butters?\b/, 'latticini', 'burro'], [/creams?\b/, 'latticini', 'panna'], [/cheeses?/, 'latticini', null],
+  [/en:eggs|chicken-eggs/, 'proteine', 'uova'], [/tunas?/, 'proteine', 'tonno'], [/legumes|beans|chickpeas|lentils/, 'proteine', null], [/meats?|hams?|sausages|salami|poultr|chicken/, 'proteine', null], [/fishes|seafood|salmon/, 'proteine', null],
+  [/tomato-sauces|tomato-purees|passata|peeled-tomatoes|crushed-tomatoes/, 'condimenti', 'passata'], [/olive-oils/, 'condimenti', 'olio'], [/oils|vinegars|condiments|sauces|spices|salts|sugars|pestos|broths|stock/, 'condimenti', null],
+  [/vegetables|salads/, 'verdura', null], [/fruits|nuts/, 'frutta', null], [/beverages|waters|juices|sodas|wines|beers|coffees|teas/, 'bevande', null]
+];
+function offQty(s) {
+  s = String(s || '').toLowerCase().replace(',', '.'); let m = s.match(/(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(kg|g|ml|cl|l)\b/);
+  if (m) { let q = +m[1] * +m[2], u = m[3]; if (u === 'cl') { q *= 10; u = 'ml' } return { q: round(q), u } }
+  m = s.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|cl|l)\b/); if (m) { let q = +m[1], u = m[2]; if (u === 'cl') { q *= 10; u = 'ml' } return { q, u } }
+  m = s.match(/(\d+)\s*(pz|pezzi|uova|bustine|capsule)/); if (m) return { q: +m[1], u: 'pz' };
+  return { q: 1, u: 'conf' }
+}
+async function lookupOFF(code) {
+  const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=product_name,product_name_it,generic_name_it,brands,quantity,categories_tags`);
+  if (!r.ok) return null; const j = await r.json(); if (!j || j.status !== 1 || !j.product) return null;
+  const p = j.product; const full = (p.product_name_it || p.product_name || p.generic_name_it || '').trim(); if (!full) return null;
+  const tags = (p.categories_tags || []).join(' '); const hit = OFF_MAP.find(([re]) => re.test(tags));
+  let n = (hit && hit[2]) || full.toLowerCase().replace(new RegExp('\\b' + String(p.brands || '').split(',')[0].trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i'), '').replace(/\s+/g, ' ').trim() || full.toLowerCase();
+  const cat = hit ? hit[1] : guessCat(n);
+  const luogo = /frozen|surgel/.test(tags) ? 'freezer' : /canned|uht|long-life|dried|dry-/.test(tags) ? 'dispensa' : (cat === 'latticini' || /fresh|refrigerated|en:meats|fishes|hams/.test(tags)) ? 'frigo' : guessLuogo(n + ' ' + full);
+  const { q, u } = offQty(p.quantity);
+  return { n, q, u, luogo, cat, info: `${full}${p.brands ? ' · ' + p.brands.split(',')[0] : ''}${p.quantity ? ' · ' + p.quantity : ''}` }
+}
+const PRODUCT_PROMPT = 'Nella foto ci sono uno o più alimenti: confezioni oppure prodotti freschi (frutta, verdura, carne...). Elenca ognuno. Per ciascuno dai: "n" = nome generico breve in italiano minuscolo, come lo chiamerebbe una famiglia (es. "carote", "pasta", "latte", "petto di pollo"); "q" = quantità: numero di pezzi per la frutta e la verdura sfuse, oppure peso o volume se si legge sulla confezione; "u" = una tra g, kg, ml, l, pz, conf; "luogo" = dove si conserva di solito in una casa italiana, una tra frigo, dispensa, freezer (carote, zucchine, insalata, latticini, carne: frigo; pasta, riso, patate, cipolle, scatolame, biscotti: dispensa; surgelati: freezer); "cat" = una tra carbo, verdura, frutta, proteine, latticini, condimenti, dolci, bevande, altro. Se non c\'è nessun alimento rispondi con la lista vuota. Rispondi SOLO con JSON: {"prodotti":[{"n":"carote","q":4,"u":"pz","luogo":"frigo","cat":"verdura"}]}';
+const QUICK = ['carote', 'zucchine', 'pomodori', 'insalata', 'patate', 'cipolle', 'mele', 'banane', 'limoni', 'uova', 'latte', 'pane'];
+
+function photoModal() {
+  modal(`<h2>Foto di un prodotto</h2><p class="sub">Fotografa una confezione (meglio dal lato del codice a barre) o della frutta e verdura: la metto in dispensa, in frigo o in freezer. Puoi fotografare anche più cose insieme.</p>
+  <div class="row"><label class="bp filebtn">Scatta foto<input type="file" accept="image/*" capture="environment" id="cam" hidden></label><label class="bg filebtn">Dalla galleria<input type="file" accept="image/*" id="gal" hidden></label></div>
+  <p class="hint">${gkey() ? 'Riconoscimento con Gemini attivo: funziona anche con frutta, verdura e prodotti senza codice.' : 'Senza Gemini riconosco le confezioni dal codice a barre. Per frutta e verdura attiva Gemini nelle impostazioni (è gratis).'}</p><div id="pout"></div>`, m => {
+    const go = e => { const f = e.target.files[0]; if (f) readProduct(f, m.querySelector('#pout')); e.target.value = '' };
+    m.querySelector('#cam').onchange = go; m.querySelector('#gal').onchange = go
+  })
+}
+async function readProduct(file, out) {
+  const url = URL.createObjectURL(file);
+  out.innerHTML = `<div class="prev"><img src="${url}" alt=""><p class="load" id="st">Cerco il codice a barre…</p></div>`; const st = t => { const e = out.querySelector('#st'); if (e) e.textContent = t };
+  let items = [], note = '';
+  try {
+    const code = await readBarcode(file);
+    if (code) {
+      st(`Codice ${code}: cerco il prodotto…`);
+      try { const p = await lookupOFF(code); if (p) items = [p]; else note = `Il codice ${code} non è nell'archivio di Open Food Facts.` } catch (e) { note = 'Non riesco a cercare il codice adesso.' }
+    }
+    if (!items.length && gkey()) {
+      st('Gemini sta guardando la foto…');
+      try { const { color } = await prep(file); items = gItems(await gemini([{ text: PRODUCT_PROMPT }, { inline_data: { mime_type: 'image/jpeg', data: color.split(',')[1] } }])); if (!items.length) note = 'Non vedo alimenti nella foto.' } catch (e) { note = 'Gemini non risponde: ' + (e.message || e) }
+    } else if (!items.length && !code) note = 'Non trovo un codice a barre nella foto.';
+  } catch (e) { console.warn(e); note = 'Non sono riuscito a leggere la foto.' }
+  if (items.length) {
+    reviewReceipt(items, '', out, { head: `<div class="prev"><img src="${url}" alt=""><div><h3 style="margin:0">${items.length === 1 ? 'Ecco cosa ho trovato' : `Ho trovato ${items.length} prodotti`}</h3><p class="sub" style="margin:4px 0 0">Controlla nome, quantità e dove va, poi conferma.</p></div></div>`, ok: items.length === 1 ? 'Aggiungi' : 'Aggiungi tutto' });
+    return
+  }
+  out.innerHTML = `<div class="prev"><img src="${url}" alt=""><p class="sub" style="margin:0">${esc(note)}${gkey() ? '' : ' Con Gemini riconoscerei anche frutta e verdura.'}</p></div>
+  <h3>Cos'è?</h3><div class="quick">${QUICK.map(n => `<button class="sm" data-q="${n}">${n}</button>`).join('')}</div>
+  <form id="pf" class="row"><input name="n" class="srch" placeholder="Scrivi il nome, es. 4 carote" autocomplete="off"><button class="bp">Avanti</button></form>`;
+  const pick = t => { const p = parseLine(t); if (p) reviewReceipt([{ n: p.n, q: p.q ?? 1, u: p.u === 'qb' ? 'pz' : p.u, luogo: guessLuogo(p.n), cat: guessCat(p.n) }], '', out, { head: '<h3>Controlla e conferma</h3>', ok: 'Aggiungi' }) };
+  out.querySelectorAll('[data-q]').forEach(b => b.onclick = () => pick(b.dataset.q));
+  out.querySelector('#pf').onsubmit = e => { e.preventDefault(); pick(E(e.target, 'n').value) }
 }
 
 /* ---------- Keep / condivisione ---------- */
@@ -462,7 +567,7 @@ document.addEventListener('click', e => {
   else if (a === 'tog') { const p = pres(ds.d, ds.m); setPres(ds.d, ds.m, { [ds.meal]: p[ds.meal] === false }) }
   else if (a === 'menu') menuModal(ds.d, ds.meal); else if (a === 'imp') impModal(ds.d);
   else if (a === 'delimp') { const p = pres(ds.d, ds.m); setPres(ds.d, ds.m, { imp: (p.imp || []).filter((_, i) => i !== +ds.i) }) }
-  else if (a === 'luogo') { S.luogo = ds.v; render() } else if (a === 'dadd') dispModal(); else if (a === 'dbulk') bulkModal(); else if (a === 'scan') scanModal();
+  else if (a === 'luogo') { S.luogo = ds.v; render() } else if (a === 'cat') { S.cat = ds.v; render() } else if (a === 'photo') photoModal(); else if (a === 'dadd') dispModal(); else if (a === 'dbulk') bulkModal(); else if (a === 'scan') scanModal();
   else if (a === 'dedit') dispModal(S.disp.find(x => x.id === ds.id));
   else if (a === 'dq') { const d = S.disp.find(x => x.id === ds.id); if (d) save('dispensa', d.id, { ...d, qty: Math.max(0, round((d.qty || 0) + (+ds.v) * stepFor(d.unit))) }) }
   else if (a === 'dzero') { const d = S.disp.find(x => x.id === ds.id); if (d) { save('dispensa', d.id, { ...d, qty: 0 }); addToSpesa([{ name: d.name, qty: null, unit: d.unit === 'qb' ? 'pz' : d.unit }]); toast(d.name + ' messo in spesa') } }

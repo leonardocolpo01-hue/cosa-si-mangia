@@ -3,7 +3,7 @@
 L'app della cucina di famiglia: chi mangia a casa ai tre pasti, gli impegni di ognuno, cosa c'è in frigo e in dispensa, le ricette che si possono fare con quello che c'è e la lista della spesa. Si installa sul telefono come un'app e funziona anche offline.
 
 - **Settimana**: per ogni giorno, chi è a casa a colazione, pranzo e cena (basta toccare l'iniziale), gli impegni e cosa si mangia.
-- **Dispensa**: frigo, dispensa e freezer, con quantità e scadenze. Si riempie a mano, scrivendo più cose insieme oppure **fotografando lo scontrino**.
+- **Dispensa**: frigo, dispensa e freezer, con quantità e scadenze, filtrabile per categoria (carboidrati, verdura, frutta, proteine, latticini, condimenti, dolci, bevande). Si riempie a mano, scrivendo più cose insieme, **fotografando un prodotto** o **fotografando lo scontrino**.
 - **Ricette**: si vede subito quanti ingredienti ci sono già in casa. Le dosi cambiano in base al numero di persone, gli ingredienti mancanti vanno in spesa con un tocco e "L'ho cucinata" li toglie dalla dispensa.
 - **Spesa**: si spuntano le cose comprate e poi si spostano in dispensa. "Manda a Keep" la condivide in una nota di Google Keep.
 
@@ -41,6 +41,14 @@ Tocca **Scontrino**, fotografa lo scontrino intero, dritto e con buona luce. Pri
 
 - Senza configurare nulla, la lettura avviene sul telefono con [Tesseract.js](https://tesseract.projectnaptha.com/): funziona, ma i nomi escono come sullo scontrino ("MOZZ.FIORDILATTE 125G") e conviene sistemarli.
 - **Con Gemini (consigliato)**: crea una chiave gratuita su [aistudio.google.com/apikey](https://aistudio.google.com/apikey) e inseriscila in ⚙︎ Impostazioni. I prodotti escono già con nomi semplici ("mozzarella"), quantità e posto (frigo/dispensa/freezer). Con la stessa chiave si attivano anche le **Idee**: tre ricette proposte su quello che c'è in casa. La chiave resta salvata solo sul telefono dove la inserisci.
+
+## Foto di un prodotto
+
+In Dispensa tocca **Foto** e fotografa:
+- **una confezione**: l'app legge il codice a barre e cerca il prodotto nell'archivio gratuito [Open Food Facts](https://it.openfoodfacts.org). Così sa nome, peso, categoria e se va in dispensa, in frigo o in freezer. Funziona anche senza Gemini.
+- **frutta, verdura o prodotti senza codice**, anche più cose nella stessa foto: serve la chiave Gemini. Senza chiave l'app propone i nomi più comuni da toccare.
+
+Prima di aggiungere puoi sempre correggere nome, quantità, categoria e posto.
 
 ## Google Keep
 
