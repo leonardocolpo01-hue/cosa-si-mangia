@@ -1,15 +1,8 @@
-// Configurazione di Firebase (Impostazioni progetto → Le tue app → Web → firebaseConfig).
-// Se la incolli qui, nessuno in famiglia dovrà inserirla: basterà il link di invito.
-// Se la lasci a null, l'app la chiede al primo avvio e la mette dentro il link di invito.
-// Questi valori non sono segreti: la protezione sta nelle regole di firestore.rules.
-export const firebaseConfig = null;
-/* Esempio:
 export const firebaseConfig = {
-  apiKey: "AIza...",
-  authDomain: "cosa-si-mangia-xxxx.firebaseapp.com",
-  projectId: "cosa-si-mangia-xxxx",
-  storageBucket: "cosa-si-mangia-xxxx.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abcdef"
+  apiKey: "AIzaSyDwCOB3GMKZ8L71dMq6rCtPaJ6Gi-jUYKw",
+  authDomain: "cosa-si-mangia.firebaseapp.com",
+  projectId: "cosa-si-mangia",
+  storageBucket: "cosa-si-mangia.firebasestorage.app",
+  messagingSenderId: "428018330359",
+  appId: "1:428018330359:web:491277fc74136b9e74c1f2"
 };
-*/
