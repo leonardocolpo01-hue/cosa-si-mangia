@@ -25,12 +25,12 @@ const CATS = [['carbo', 'Carboidrati'], ['verdura', 'Verdura'], ['frutta', 'Frut
 const CAT_L = Object.fromEntries(CATS);
 const CAT_S = { carbo: 'Carbo', condimenti: 'Condim.', dolci: 'Dolci' };
 const CAT_KW = {
-  carbo: ['pasta', 'spaghett', 'penne', 'fusill', 'rigaton', 'maccheron', 'tagliatell', 'lasagn', 'tortellin', 'raviol', 'gnocch', 'riso', 'pane', 'panin', 'farina', 'cous cous', 'couscous', 'orzo', 'farro', 'patat', 'cracker', 'grissin', 'fette biscottate', 'piadin', 'pizza', 'polenta', 'cereali', 'avena', 'fiocchi d avena', 'quinoa', 'pangrattato', 'tramezzin', 'focacc'],
+  carbo: ['pasta', 'spaghett', 'penne', 'fusill', 'rigaton', 'maccheron', 'tagliatell', 'lasagn', 'tortellin', 'raviol', 'gnocch', 'riso', 'pane', 'panin', 'farina', 'cous cous', 'couscous', 'orzo', 'farro', 'patat', 'cracker', 'grissin', 'fette biscottate', 'piadin', 'pizza', 'polenta', 'cereali', 'avena', 'fiocchi d avena', 'quinoa', 'pangrattato', 'tramezzin', 'focacc', 'spatzle', 'noodles', 'udon', 'ramen', 'tortill'],
   verdura: ['carot', 'zucchin', 'pomodor', 'insalat', 'lattuga', 'spinac', 'cipoll', 'aglio', 'peperon', 'melanzan', 'broccol', 'cavol', 'cavolfior', 'finocch', 'sedan', 'piselli', 'fagiolini', 'funghi', 'zucca', 'porr', 'radicchi', 'rucola', 'cetriol', 'asparag', 'carciof', 'verdur', 'minestrone', 'basilic', 'prezzemol', 'verza', 'bietol', 'cime di rapa', 'mais', 'olive'],
   frutta: ['mela', 'mele', 'banan', 'aranc', 'pera', 'pere', 'fragol', 'uva', 'kiwi', 'limon', 'mandarin', 'clementin', 'pesca', 'pesche', 'albicocc', 'ciliegi', 'anguri', 'melon', 'ananas', 'frutta', 'prugn', 'mirtill', 'lampon', 'avocado', 'pompelm', 'cachi', 'fichi', 'noci', 'mandorl', 'nocciol'],
   proteine: ['carne', 'pollo', 'petto di pollo', 'manzo', 'maiale', 'vitell', 'tacchin', 'salsicc', 'macinat', 'hamburger', 'bistecc', 'cotolett', 'arrost', 'prosciutt', 'salam', 'speck', 'bresaol', 'mortadell', 'wurstel', 'pancett', 'affettat', 'pesce', 'salmon', 'tonno', 'merluzz', 'orata', 'branzin', 'gamber', 'calamar', 'cozze', 'vongol', 'sgombr', 'uova', 'uovo', 'legum', 'fagiol', 'ceci', 'lenticchi', 'tofu', 'seitan', 'bastoncini di pesce'],
   latticini: ['latte', 'yogurt', 'formagg', 'mozzarell', 'burro', 'panna', 'ricott', 'parmigian', 'grana', 'stracchin', 'mascarpon', 'scamorz', 'gorgonzol', 'asiago', 'philadelphia', 'fiordilatte', 'emmental', 'pecorin', 'provol', 'feta', 'kefir', 'burrata', 'crescenza', 'fontina'],
-  condimenti: ['olio', 'aceto', 'sale', 'pepe', 'zucchero', 'passata', 'pelati', 'polpa di pomodoro', 'concentrato', 'sugo', 'pesto', 'maionese', 'ketchup', 'senape', 'spezie', 'origano', 'rosmarin', 'dado', 'brodo', 'salsa', 'lievito', 'curry', 'paprika', 'cannella', 'noce moscata', 'besciamella'],
+  condimenti: ['olio', 'aceto', 'sale', 'pepe', 'zucchero', 'passata', 'pelati', 'polpa di pomodoro', 'concentrato', 'sugo', 'pesto', 'maionese', 'ketchup', 'senape', 'spezie', 'origano', 'rosmarin', 'dado', 'brodo', 'salsa', 'lievito', 'curry', 'paprika', 'cannella', 'noce moscata', 'besciamella', 'ragu', 'sugo pronto'],
   dolci: ['biscott', 'cioccolat', 'merendin', 'nutella', 'marmellat', 'confettur', 'crostat', 'torta', 'gelato', 'caramell', 'patatine', 'snack', 'wafer', 'miele', 'brioche', 'cornett', 'budino', 'pandoro', 'panettone', 'crema spalmabile'],
   bevande: ['acqua', 'succo', 'birra', 'vino', 'coca', 'aranciata', 'bibita', 'caffe', 'tisana', 'the', 'spremuta', 'latte di soia', 'bevanda', 'prosecco', 'spritz']
 };
@@ -98,7 +98,59 @@ function ingStatus(i, f) {
   return { st: 'y', it }
 }
 function pres(date, mid) { return S.pres[date + '_' + mid] || { date, mid, c: true, p: true, s: true, imp: [] } }
-function menuLabel(k, mk) { const v = (S.menu[k] || {})[mk]; if (!v) return ''; if (v.rid) { const r = S.ric.find(r => r.id === v.rid); if (r) return r.name } return v.t || '' }
+const COURSES = [['', 'Portata'], ['antipasto', 'Antipasto'], ['primo', 'Primo'], ['secondo', 'Secondo'], ['contorno', 'Contorno'], ['unico', 'Piatto unico'], ['dolce', 'Dolce']];
+const COURSE_L = Object.fromEntries(COURSES); const COURSE_ORDER = ['antipasto', 'primo', 'unico', 'secondo', 'contorno', 'dolce', ''];
+function mealItems(k, mk) { const v = (S.menu[k] || {})[mk]; if (!v) return []; if (Array.isArray(v.items)) return v.items; if (v.t || v.rid) return [{ id: 'x0', t: v.t || '', rid: v.rid || '' }]; return [] }
+const itemName = it => { if (it.rid) { const r = S.ric.find(x => x.id === it.rid); if (r) return r.name } return it.t || '' };
+function menuLabel(k, mk) { return mealItems(k, mk).map(itemName).filter(Boolean).join(', ') }
+// "pane e latte" / "spätzle o gnocchi al ragù" / "primo: pasta o riso" -> piatti (sicuri o a scelta)
+function parseMenuText(t) {
+  const out = [];
+  String(t).split(/\n|;/).map(x => x.trim()).filter(Boolean).forEach(line => {
+    let course = ''; const cm = line.match(/^(antipasto|antipasti|primo|primi|secondo|secondi|contorno|contorni|piatto unico|dolce|dolci)\s*[:\-–]\s*/i);
+    if (cm) { const w = cm[1].toLowerCase(); course = w.startsWith('antip') ? 'antipasto' : w.startsWith('prim') ? 'primo' : w.startsWith('second') ? 'secondo' : w.startsWith('contorn') ? 'contorno' : w.startsWith('piatto') ? 'unico' : 'dolce'; line = line.slice(cm[0].length) }
+    const parts = line.split(/\s+(?:oppure|o)\s+|\s*\/\s*|\s*\|\s*/i).map(x => x.trim()).filter(Boolean);
+    parts.forEach(p => out.push({ id: rid(), t: p.charAt(0).toUpperCase() + p.slice(1), rid: '', alt: parts.length > 1, course, picks: [] }))
+  });
+  return out
+}
+function linkRecipes(items) { return items.map(it => { if (it.rid || !it.t) return it; const r = S.ric.find(x => norm(x.name) === norm(it.t)); return r ? { ...it, rid: r.id } : it }) }
+async function addDish(k, mk, item) {
+  let cur = mealItems(k, mk);
+  if (!S.menu[k] && F) { try { const g = await F.fs.getDoc(dref('menu', k)); const v = g.exists() && g.data()[mk]; if (v) cur = Array.isArray(v.items) ? v.items : (v.t || v.rid) ? [{ id: 'x0', t: v.t || '', rid: v.rid || '' }] : [] } catch (e) { } }
+  setMenu(k, mk, { ...mealVal(k, mk), items: [...cur, item] })
+}
+function mealVal(k, mk) { const v = (S.menu[k] || {})[mk]; if (!v) return {}; if (Array.isArray(v.items)) return { ...v }; return { items: mealItems(k, mk) } }
+function suggestFor(text, chosen) {
+  const toks = norm(text).split(' ').filter(w => w.length >= 3);
+  return S.disp.filter(d => !zero(d) && !chosen.includes(d.id) && norm(d.name).split(' ').filter(w => w.length >= 4).some(w => toks.some(t => t.startsWith(stem(w)) || stem(t) === stem(w)))).slice(0, 4)
+}
+function defQty(d, n) { const q = typeof d.qty === 'number' ? d.qty : null; const u = d.unit || 'pz'; const v = u === 'g' ? 80 * n : u === 'ml' ? 100 * n : u === 'kg' ? .08 * n : u === 'l' ? .1 * n : 1; return round(q != null ? Math.min(q, v) : v) }
+function consume(d, q, u) { if (!d || typeof d.qty !== 'number' || q == null || u === 'qb') return null; const [a, ba] = toBase(q, u || d.unit), [b, bb] = toBase(d.qty, d.unit); if (ba !== bb) return null; const k = BASE[d.unit] ? BASE[d.unit][1] : 1; return round(Math.max(0, b - a) / k) }
+function cookMeal(k, mk) {
+  const v = mealVal(k, mk); const items = v.items || []; const n = members().filter(m => pres(k, m.id)[mk] !== false).length || 1;
+  const groups = {}; items.forEach(it => { if (it.alt) { const c = it.course || ''; (groups[c] = groups[c] || []).push(it) } });
+  const skipped = Object.values(groups).filter(g => !g.some(x => (x.picks || []).length)).length;
+  const prev = new Map();
+  const apply = (id, q, u) => { const d = S.disp.find(x => x.id === id); const nq = consume(d, q, u); if (nq == null) return; if (!prev.has(id)) prev.set(id, d.qty); save('dispensa', id, { ...d, qty: nq }) };
+  items.filter(it => !it.alt || (it.picks || []).length).forEach(it => {
+    (it.ingr || []).forEach(g => { const d = S.disp.find(x => x.id === g.id) || haveItem(g.name); if (d) apply(d.id, g.q, g.u) });
+    const r = it.rid && S.ric.find(x => x.id === it.rid);
+    if (r) { const f = n / (+r.porz || 4); (r.ingr || []).forEach(i => { if (STAPLES.includes(norm(i.n)) || i.q == null) return; const d = haveItem(i.n); if (d) apply(d.id, i.q * f, i.u) }) }
+  });
+  const used = [...prev].map(([id, q]) => ({ id, q }));
+  setMenu(k, mk, { ...v, items, cooked: { at: Date.now(), used, by: S.me || '' } });
+  toast(used.length ? `Scalati ${used.length} ${used.length === 1 ? 'ingrediente' : 'ingredienti'} dalla dispensa${skipped ? '. Le alternative che nessuno ha scelto non le ho contate' : ''}` : 'Nessun ingrediente da scalare: aggiungili ai piatti con Modifica')
+}
+function undoCook(k, mk) { const v = mealVal(k, mk); ((v.cooked && v.cooked.used) || []).forEach(u => { const d = S.disp.find(x => x.id === u.id); if (d) save('dispensa', d.id, { ...d, qty: u.q }) }); delete v.cooked; setMenu(k, mk, v); toast('Ingredienti rimessi in dispensa') }
+function togglePick(k, mk, i) {
+  if (!S.me) { whoModal(); return }
+  const items = mealItems(k, mk).map(x => ({ ...x, picks: [...(x.picks || [])] })); const it = items[i]; if (!it) return;
+  const j = it.picks.indexOf(S.me);
+  if (j >= 0) it.picks.splice(j, 1);
+  else { items.forEach(o => { if (o !== it && o.alt && (o.course || '') === (it.course || '')) { const q = o.picks.indexOf(S.me); if (q >= 0) o.picks.splice(q, 1) } }); it.picks.push(S.me) }
+  setMenu(k, mk, { ...mealVal(k, mk), items })
+}
 const gkey = () => LS.get('gkey', '');
 
 /* ---------- Firebase ---------- */
@@ -132,7 +184,7 @@ const KEY = { dispensa: 'disp', ricette: 'ric', spesa: 'spesa' };
 function save(c, id, data) { const arr = S[KEY[c]]; id = id || rid(); const v = { ...data }; delete v.id; const i = arr.findIndex(x => x.id === id); if (i >= 0) arr[i] = { id, ...v }; else arr.push({ id, ...v }); render(); if (F) F.fs.setDoc(dref(c, id), v).catch(werr); return id }
 function del(c, id) { S[KEY[c]] = S[KEY[c]].filter(x => x.id !== id); render(); if (F) F.fs.deleteDoc(dref(c, id)).catch(werr) }
 function setPres(date, mid, patch) { const k = date + '_' + mid; const v = { ...pres(date, mid), ...patch, date, mid }; S.pres[k] = v; render(); if (F) F.fs.setDoc(dref('presenze', k), v).catch(werr) }
-function setMenu(k, mk, val) { const cur = { ...(S.menu[k] || {}), date: k }; if (val) cur[mk] = val; else delete cur[mk]; S.menu[k] = cur; render(); if (F) F.fs.setDoc(dref('menu', k), { date: k, [mk]: val || F.fs.deleteField() }, { merge: true }).catch(werr) }
+function setMenu(k, mk, val) { const cur = { ...(S.menu[k] || {}), date: k }; if (val) cur[mk] = val; else delete cur[mk]; S.menu[k] = cur; render(); if (F) F.fs.setDoc(dref('menu', k), { date: k, [mk]: val || F.fs.deleteField() }, { mergeFields: ['date', mk] }).catch(werr) }
 function addToSpesa(items) {
   items.forEach(x => {
     const u = x.unit || 'pz'; const ex = S.spesa.find(s => !s.done && same(s.name, x.name) && (s.unit || 'pz') === u);
@@ -198,6 +250,22 @@ const encCfg = c => btoa(unescape(encodeURIComponent(JSON.stringify(c)))).replac
 const decCfg = s => { try { s = decodeURIComponent(s).replace(/-/g, '+').replace(/_/g, '/'); const c = JSON.parse(decodeURIComponent(escape(atob(s)))); return c.apiKey ? c : null } catch (e) { return null } };
 const inviteLink = () => `${location.origin}${location.pathname}?f=${S.fam}${CFG && CFG.apiKey ? '' : '&c=' + encCfg(S.cfg)}`;
 
+function menuBlock(k, mk, items, M) {
+  const L = items.map((it, i) => ({ ...it, i }));
+  const groups = COURSE_ORDER.map(c => [c, L.filter(x => (x.course || '') === c)]).filter(g => g[1].length);
+  return `<div class="menu">${groups.map(([c, G]) => {
+    const fix = G.filter(x => !x.alt), alt = G.filter(x => x.alt);
+    const dish = x => `<button class="dish" ${x.rid ? `data-act="ropen" data-id="${x.rid}"` : `data-act="menu" data-d="${k}" data-meal="${mk}"`}>${esc(itemName(x))}${x.rid ? '<small>ricetta</small>' : ''}</button>${(x.ingr || []).length ? `<span class="dig">${x.ingr.map(g => esc(g.name) + (g.q != null ? ' ' + fmtQ(g.q, g.u) : '')).join(' · ')}</span>` : ''}`;
+    const chip = x => { const p = (x.picks || []).filter(id => M.some(m => m.id === id)); return `<button class="alt${p.includes(S.me) ? ' on' : ''}" data-act="pick" data-d="${k}" data-meal="${mk}" data-i="${x.i}" aria-pressed="${p.includes(S.me)}"><span>${esc(itemName(x))}</span>${p.length ? `<span class="pk">${p.map(id => { const m = M.find(z => z.id === id); return `<i style="background:${m.color}" title="${esc(m.name)}">${esc(ini(m.name))}</i>` }).join('')}</span>` : ''}</button>` };
+    return `<div class="crsg">${c ? `<div class="crs">${COURSE_L[c]}</div>` : ''}${fix.map(dish).join('')}${alt.length ? `<div class="alts"><span class="altl">${fix.length ? 'Oppure, a scelta' : 'A scelta'} <small>tocca il tuo preferito</small></span>${alt.map(chip).join('')}</div>` : ''}</div>`
+  }).join('')}</div>${cookBar(k, mk, items)}`
+}
+function cookBar(k, mk, items) {
+  const v = (S.menu[k] || {})[mk] || {}; if (k > today()) return '';
+  if (v.cooked) return `<div class="cook done"><span>✓ Cucinato${(v.cooked.used || []).length ? ', ingredienti scalati dalla dispensa' : ''}</span><button class="lnk" data-act="uncook" data-d="${k}" data-meal="${mk}">Annulla</button></div>`;
+  if (!items.some(it => (it.ingr || []).length || it.rid)) return '';
+  return `<button class="cook" data-act="cook" data-d="${k}" data-meal="${mk}">Cucinato: scala gli ingredienti dalla dispensa</button>`
+}
 function renderSett() {
   const ds = weekDays(S.week), M = members(), t = today();
   if (!S.sel || !ds.some(d => ymd(d) === S.sel)) S.sel = S.week === 0 ? t : ymd(ds[0]);
@@ -212,9 +280,9 @@ function renderSett() {
   h += `<div class="dhead"><h2>${k === t ? 'Oggi' : k === tom ? 'Domani' : esc(cap(wdLong.format(d)))}</h2><span>${esc(longFmt.format(d))}</span>${S.week !== 0 ? '<button class="lnk" data-act="wk0">Torna a oggi</button>' : ''}</div>`;
   if (soon.length) h += `<button class="alert" data-act="tab" data-v="dispensa"><b>Da usare presto</b>${soon.map(x => `${esc(x.name)} <small>(${scadTxt(x.scad)})</small>`).join(', ')}</button>`;
   h += MEALS.map(([mk, ml]) => {
-    const home = M.filter(m => pres(k, m.id)[mk] !== false); const mn = menuLabel(k, mk); const v = (S.menu[k] || {})[mk]; const r = v && v.rid && S.ric.find(x => x.id === v.rid);
-    return `<section class="mc${mk === nextMk ? ' next' : ''}${k < t ? ' past' : ''}"><header><span class="mt2">${ml}</span>${mk === nextMk ? '<span class="badge">Prossimo</span>' : ''}<span class="cnt">${home.length ? home.length + ' a casa' : 'nessuno a casa'}</span></header>
-    <div class="mline">${mn ? `<button class="mname" data-act="${r ? 'ropen' : 'menu'}" data-id="${r ? r.id : ''}" data-d="${k}" data-meal="${mk}">${esc(mn)}</button><button class="lnk" data-act="menu" data-d="${k}" data-meal="${mk}">Cambia</button>` : `<button class="madd" data-act="menu" data-d="${k}" data-meal="${mk}">+ Cosa si mangia?</button>${mk === nextMk && gkey() ? '<button class="lnk" data-act="ai">Idee</button>' : ''}`}</div>
+    const home = M.filter(m => pres(k, m.id)[mk] !== false); const items = mealItems(k, mk);
+    return `<section class="mc${mk === nextMk ? ' next' : ''}${k < t ? ' past' : ''}"><header><span class="mt2">${ml}</span>${mk === nextMk ? '<span class="badge">Prossimo</span>' : ''}<span class="cnt">${home.length ? home.length + ' a casa' : 'nessuno a casa'}</span>${items.length ? `<button class="lnk" data-act="menu" data-d="${k}" data-meal="${mk}">Modifica</button>` : ''}</header>
+    ${items.length ? menuBlock(k, mk, items, M) : `<div class="mline"><button class="madd" data-act="menu" data-d="${k}" data-meal="${mk}">+ Cosa si mangia?</button>${mk === nextMk && gkey() ? '<button class="lnk" data-act="ai">Idee</button>' : ''}</div>`}
     <div class="avs">${M.map(m => { const on = pres(k, m.id)[mk] !== false; return `<button class="av${on ? ' on' : ''}" style="--c:${m.color}" data-act="tog" data-d="${k}" data-m="${m.id}" data-meal="${mk}" aria-pressed="${on}" aria-label="${esc(m.name)}: ${on ? 'a casa' : 'fuori'}"><span>${esc(ini(m.name))}</span><small>${esc(m.name)}</small></button>` }).join('')}</div></section>`
   }).join('');
   const imps = M.flatMap(m => (pres(k, m.id).imp || []).map((x, i) => ({ ...x, m, i }))).sort((a, b) => (a.ora || '99').localeCompare(b.ora || '99'));
@@ -327,18 +395,54 @@ function impModal(k) {
   })
 }
 
+function ingRow(it) {
+  const ch = (it.ingr || []).map(g => g.id); const sug = it.t ? suggestFor(it.t, ch) : [];
+  return `<div class="ingw">${(it.ingr || []).map((g, j) => `<span class="ig" data-j="${j}"><b>${esc(g.name)}</b><input class="iq" type="number" step="any" min="0" inputmode="decimal" value="${g.q ?? ''}" aria-label="Quantità di ${esc(g.name)}"><small>${esc(g.u || '')}</small><button type="button" class="igx" data-igdel="${j}" aria-label="Togli ${esc(g.name)}">×</button></span>`).join('')}${sug.map(d => `<button type="button" class="igs" data-igadd="${d.id}">+ ${esc(d.name)}</button>`).join('')}<button type="button" class="igs more" data-igpick>+ Ingrediente dalla dispensa</button></div><div class="igp" hidden><input class="igq" placeholder="Cerca in dispensa…" autocomplete="off"><div class="igl"></div></div>`
+}
 function menuModal(k, mk) {
-  const cur = (S.menu[k] || {})[mk] || {}; const ml = MEALS.find(x => x[0] === mk)[1]; const n = members().filter(m => pres(k, m.id)[mk] !== false).length;
-  const L = S.ric.map(r => ({ r, m: match(r) })).sort((a, b) => a.m.miss.length - b.m.miss.length);
-  modal(`<h2>${ml}</h2><p class="sub"><span style="text-transform:capitalize">${esc(dayFmt.format(dt(k)))}</span> · ${n} a casa</p><form id="f"><label>Scrivi cosa si mangia<input name="t" value="${esc(cur.rid ? '' : cur.t || '')}" placeholder="Es. pizza, avanzi, pasta al pomodoro" autocomplete="off"></label>
-  <div class="acts">${cur.t || cur.rid ? '<button type="button" class="bd" id="clr">Svuota</button>' : ''}<button type="button" class="bg" data-act="close">Annulla</button><button class="bp">Salva</button></div></form>
-  ${L.length ? `<h3>Oppure scegli una ricetta</h3><ul class="pick">${L.map(({ r, m }) => `<li><button data-pick="${r.id}" class="${cur.rid === r.id ? 'on' : ''}"><b>${esc(r.name)}</b><small>${m.miss.length ? 'mancano ' + m.miss.length : 'hai tutto'}</small></button></li>`).join('')}</ul>` : '<p class="sub" style="margin-top:14px">Quando aggiungi ricette potrai sceglierle da qui.</p>'}`, mm => {
-    mm.querySelector('#f').onsubmit = e => { e.preventDefault(); const t = E(e.target, 't').value.trim(); setMenu(k, mk, t ? { t } : null); close() };
-    const c = mm.querySelector('#clr'); if (c) c.onclick = () => { setMenu(k, mk, null); close() };
-    mm.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { const r = S.ric.find(x => x.id === b.dataset.pick); if (!r) return; setMenu(k, mk, { rid: r.id, t: r.name }); const mi = match(r).miss.length; if (mi) { ricModal(r.id, n || r.porz); toast(`Mancano ${mi} ingredienti: puoi metterli in spesa`) } else close() })
+  let items = mealItems(k, mk).map(x => ({ id: x.id && x.id !== 'x0' ? x.id : rid(), t: x.t || itemName(x), rid: x.rid || '', alt: !!x.alt, course: x.course || '', picks: [...(x.picks || [])], ingr: (x.ingr || []).map(g => ({ ...g })) }));
+  const ml = MEALS.find(x => x[0] === mk)[1]; const n = members().filter(m => pres(k, m.id)[mk] !== false).length;
+  const R = S.ric.map(r => ({ r, m: match(r) })).sort((a, b) => a.m.miss.length - b.m.miss.length);
+  modal(`<h2>${ml}</h2><p class="sub"><span style="text-transform:capitalize">${esc(dayFmt.format(dt(k)))}</span> · ${n} a casa</p>
+  <label for="mt">Scrivi il menù <small>una portata per riga, "o" tra le alternative</small></label>
+  <textarea id="mt" rows="3" placeholder="Pane e latte&#10;Spätzle o gnocchi al ragù&#10;Dolce: tiramisù"></textarea>
+  <button class="bg wide" id="mparse" type="button" style="margin-top:8px">Aggiungi al menù</button>
+  <div id="dl"></div>
+  <p><button class="lnk" id="madd" type="button">+ Aggiungi un piatto</button></p>
+  ${R.length ? `<h3>Dalle vostre ricette</h3><ul class="pick">${R.map(({ r, m }) => `<li><button data-pick="${r.id}"><b>${esc(r.name)}</b><small>${m.miss.length ? 'mancano ' + m.miss.length : 'hai tutto'}</small></button></li>`).join('')}</ul>` : ''}
+  <div class="acts"><button type="button" class="bd" id="clr">Svuota</button><button type="button" class="bg" data-act="close">Annulla</button><button class="bp" id="ok">Salva</button></div>`, m => {
+    const dl = m.querySelector('#dl');
+    const draw = () => {
+      dl.innerHTML = items.length ? `<h3>Il menù</h3>${items.map((it, i) => `<div class="dr" data-i="${i}"><input class="dt" value="${esc(it.t)}" placeholder="Nome del piatto" aria-label="Piatto"><button type="button" class="x" data-del aria-label="Togli">×</button>
+        <div class="segc mini"><button type="button" data-alt="0" class="${it.alt ? '' : 'on'}">Sicuro</button><button type="button" data-alt="1" class="${it.alt ? 'on' : ''}">A scelta</button></div>
+        <select class="dc" aria-label="Portata">${COURSES.map(([c, l]) => `<option value="${c}"${c === it.course ? ' selected' : ''}>${l}</option>`).join('')}</select>${it.rid ? '<small class="rl">collegato alla ricetta: gli ingredienti li prende da lì</small>' : ingRow(it)}</div>`).join('')}` : '';
+      m.querySelector('#clr').hidden = !items.length
+    };
+    const pickList = (r, q) => { const it = items[+r.dataset.i]; const ch = (it.ingr || []).map(g => g.id); const L = S.disp.filter(d => !zero(d) && !ch.includes(d.id) && (!q || norm(d.name).includes(norm(q)))).sort((a, b) => String(a.name).localeCompare(b.name, 'it')).slice(0, 8); r.querySelector('.igl').innerHTML = L.length ? L.map(d => `<button type="button" class="igo" data-igadd="${d.id}"><span>${esc(d.name)}</span><small>${esc(LUOGO_L[d.luogo] || '')}${d.qty != null ? ' · ' + fmtQ(d.qty, d.unit) : ''}</small></button>`).join('') : '<p class="sub" style="margin:6px 0">Niente in dispensa con questo nome.</p>' };
+    dl.addEventListener('input', e => { const r = e.target.closest('.dr'); if (!r) return; const it = items[+r.dataset.i];
+      if (e.target.classList.contains('iq')) { const g = it.ingr[+e.target.closest('.ig').dataset.j]; g.q = e.target.value === '' ? null : parseFloat(e.target.value); return }
+      if (e.target.classList.contains('igq')) { pickList(r, e.target.value); return } });
+    dl.addEventListener('input', e => { const r = e.target.closest('.dr'); if (r && e.target.classList.contains('dt')) { const it = items[+r.dataset.i]; it.t = e.target.value; if (it.rid && norm(it.t) !== norm(itemName({ rid: it.rid }))) it.rid = ''; const w = r.querySelector('.ingw'); if (w && !it.rid) { const tmp = document.createElement('div'); tmp.innerHTML = ingRow(it); w.replaceWith(tmp.firstElementChild) } } });
+    dl.addEventListener('change', e => { const r = e.target.closest('.dr'); if (!r) return; if (e.target.classList.contains('dc')) items[+r.dataset.i].course = e.target.value;  });
+    dl.addEventListener('click', e => { const r = e.target.closest('.dr'); if (!r) return; const i = +r.dataset.i; const it = items[i];
+      const ad = e.target.closest('[data-igadd]'); if (ad) { const d = S.disp.find(x => x.id === ad.dataset.igadd); if (d) { it.ingr = [...(it.ingr || []), { id: d.id, name: d.name, q: defQty(d, n || 1), u: d.unit || 'pz' }]; draw() } return }
+      const gd = e.target.closest('[data-igdel]'); if (gd) { it.ingr.splice(+gd.dataset.igdel, 1); draw(); return }
+      if (e.target.closest('[data-igpick]')) { const p = r.querySelector('.igp'); p.hidden = !p.hidden; if (!p.hidden) { pickList(r, ''); p.querySelector('.igq').focus() } return }
+      if (e.target.closest('[data-del]')) { items.splice(i, 1); draw() } else { const b = e.target.closest('[data-alt]'); if (b) { items[i].alt = b.dataset.alt === '1'; draw() } } });
+    m.querySelector('#mparse').onclick = () => { const ta = m.querySelector('#mt'); const add = parseMenuText(ta.value); if (!add.length) { ta.focus(); return } items.push(...add); ta.value = ''; draw(); const a = add.filter(x => x.alt).length; const f = add.length - a; toast(a ? `${f ? f + (f === 1 ? ' sicuro, ' : ' sicuri, ') : ''}${a} a scelta` : `${add.length} ${add.length === 1 ? 'piatto aggiunto' : 'piatti aggiunti'}`) };
+    m.querySelector('#madd').onclick = () => { items.push({ id: rid(), t: '', rid: '', alt: false, course: '', picks: [] }); draw(); const ins = dl.querySelectorAll('.dt'); ins[ins.length - 1].focus() };
+    m.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { const r = S.ric.find(x => x.id === b.dataset.pick); if (!r) return; items.push({ id: rid(), t: r.name, rid: r.id, alt: false, course: '', picks: [] }); draw(); toast(r.name + ' aggiunta') });
+    m.querySelector('#clr').onclick = () => { items = []; draw() };
+    m.querySelector('#ok').onclick = () => {
+      const pend = parseMenuText(m.querySelector('#mt').value); items.push(...pend);
+      const clean = linkRecipes(items.filter(x => x.t.trim()).map(x => ({ ...x, t: x.t.trim() })));
+      setMenu(k, mk, clean.length ? { ...mealVal(k, mk), items: clean } : null); close();
+      const miss = clean.filter(x => x.rid).map(x => S.ric.find(r => r.id === x.rid)).filter(r => r && match(r).miss.length);
+      if (miss.length) toast(`Per ${miss[0].name} manca qualcosa: aprila per metterlo in spesa`)
+    };
+    draw()
   })
 }
-
 function recipeText(r, n) {
   const f = n / (+r.porz || 4);
   return `Per ${n} persone${r.tempo ? ' · ' + r.tempo + ' min' : ''}\n\nIngredienti:\n${(r.ingr || []).map(i => `- ${i.n}${i.u === 'qb' ? ' q.b.' : i.q != null ? ' ' + fmtQ(i.q * f, i.u) : ''}`).join('\n')}${r.passi ? `\n\nPreparazione:\n${String(r.passi).split(/\n+/).map(s => s.trim()).filter(Boolean).map((s, j) => `${j + 1}. ${s.replace(/^\d+[.)]\s*/, '')}`).join('\n')}` : ''}`
@@ -358,7 +462,7 @@ function ricModal(id, n0) {
     const q = s => m.querySelector(s);
     q('#dn').onclick = () => ricModal(id, n - 1); q('#up').onclick = () => ricModal(id, n + 1);
     if (q('#miss')) q('#miss').onclick = () => { addToSpesa(need.map(x => ({ name: x.i.n, qty: x.s.need.q == null ? null : round(x.s.need.q), unit: x.s.need.u, from: r.name }))); toast(`Aggiunti ${need.length} alla spesa`); ricModal(id, n) };
-    q('#madd').onclick = () => { setMenu(q('#md').value, q('#mm').value, { rid: r.id, t: r.name }); toast('Messa nel menu') };
+    q('#madd').onclick = () => { addDish(q('#md').value, q('#mm').value, { id: rid(), t: r.name, rid: r.id, alt: false, course: '', picks: [] }); toast('Messa nel menu') };
     q('#ed').onclick = () => ricEdit(r);
     q('#kp').onclick = () => shareText(r.name, recipeText(r, n));
     q('#cook').onclick = () => { let c = 0; st.forEach(({ i, s }) => { const it = s.it; if (!it || i.q == null || i.u === 'qb' || typeof it.qty !== 'number') return; const [a, ba] = toBase(i.q * f, i.u), [b, bb] = toBase(it.qty, it.unit); if (ba !== bb) return; const k = BASE[it.unit] ? BASE[it.unit][1] : 1; save('dispensa', it.id, { ...it, qty: round(Math.max(0, b - a) / k) }); c++ }); close(); toast(c ? `Dispensa aggiornata: ${c} ingredienti scalati` : 'Niente da scalare in dispensa') };
@@ -648,7 +752,7 @@ function go(t) { if (!TABS.includes(t)) t = 'settimana'; if (t === S.tab) { wind
 document.addEventListener('click', e => {
   if (e.target.id === 'modal') { close(); return } const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act, ds = b.dataset;
   if (a === 'close') close(); else if (a === 'tab') go(ds.v); else if (a === 'who') whoModal(); else if (a === 'settings') settingsModal();
-  else if (a === 'wk') { S.week += +ds.v; S.sel = null; subWeek(); render() } else if (a === 'wk0') { S.week = 0; S.sel = null; subWeek(); render() } else if (a === 'sel') { S.sel = ds.d; render() } else if (a === 'dplus') addSheet(); else if (a === 'fold') { const i = S.fold.indexOf(ds.v); if (i >= 0) S.fold.splice(i, 1); else S.fold.push(ds.v); LS.set('fold', S.fold); render() } else if (a === 'ddel') del('dispensa', ds.id);
+  else if (a === 'wk') { S.week += +ds.v; S.sel = null; subWeek(); render() } else if (a === 'wk0') { S.week = 0; S.sel = null; subWeek(); render() } else if (a === 'sel') { S.sel = ds.d; render() } else if (a === 'pick') togglePick(ds.d, ds.meal, +ds.i); else if (a === 'cook') cookMeal(ds.d, ds.meal); else if (a === 'uncook') undoCook(ds.d, ds.meal); else if (a === 'dplus') addSheet(); else if (a === 'fold') { const i = S.fold.indexOf(ds.v); if (i >= 0) S.fold.splice(i, 1); else S.fold.push(ds.v); LS.set('fold', S.fold); render() } else if (a === 'ddel') del('dispensa', ds.id);
   else if (a === 'tog') { const p = pres(ds.d, ds.m); setPres(ds.d, ds.m, { [ds.meal]: p[ds.meal] === false }) }
   else if (a === 'menu') menuModal(ds.d, ds.meal); else if (a === 'imp') impModal(ds.d);
   else if (a === 'delimp') { const p = pres(ds.d, ds.m); setPres(ds.d, ds.m, { imp: (p.imp || []).filter((_, i) => i !== +ds.i) }) }
