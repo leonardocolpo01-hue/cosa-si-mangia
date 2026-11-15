@@ -16,7 +16,12 @@ const COLORS = ['#d8432a', '#2f6fe0', '#d39100', '#13917f'];
 const MEALS = [['c', 'Colazione'], ['p', 'Pranzo'], ['s', 'Cena']];
 const LUOGHI = [['frigo', 'Frigo'], ['dispensa', 'Dispensa'], ['freezer', 'Freezer']];
 const LUOGO_L = { frigo: 'Frigo', dispensa: 'Dispensa', freezer: 'Freezer' };
-const UNITS = ['pz', 'g', 'kg', 'ml', 'l', 'conf', 'cucchiai', 'spicchi', 'fette', 'qb'];
+const UNITS = ['pz', 'g', 'kg', 'ml', 'l', 'conf', 'vasetti', 'barattoli', 'bottiglie', 'scatole', 'pacchi', 'bustine', 'tubetti', 'lattine', 'rotoli', 'cucchiai', 'spicchi', 'fette', 'qb'];
+const PACK = ['conf', 'pz', 'vasetti', 'barattoli', 'bottiglie', 'scatole', 'pacchi', 'bustine', 'tubetti', 'lattine', 'rotoli'];
+const LV_UNITS = [...PACK, 'g', 'kg', 'ml', 'l'];
+const SING = { vasetti: 'vasetto', barattoli: 'barattolo', bottiglie: 'bottiglia', scatole: 'scatola', pacchi: 'pacco', bustine: 'bustina', tubetti: 'tubetto', lattine: 'lattina', rotoli: 'rotolo' };
+const isPack = u => PACK.includes(u || 'conf');
+const uLabel = (u, q) => (q === 1 && SING[u]) || u || 'conf';
 const STAPLES = ['sale', 'pepe', 'acqua', 'sale fino', 'sale grosso'];
 const TABS = ['settimana', 'dispensa', 'ricette', 'spesa'];
 const FRIGO_KW = ['latte', 'yogurt', 'formagg', 'mozzarell', 'burro', 'uova', 'uovo', 'prosciutt', 'salam', 'carne', 'pollo', 'pesce', 'panna', 'ricott', 'parmigian', 'grana', 'insalat', 'zucchin', 'affettat', 'wurstel', 'tofu', 'mascarpone', 'speck', 'pancett', 'tacchin', 'manzo', 'maiale', 'salmone', 'stracchino', 'philadelphia', 'pesto', 'lievito di birra', 'macinat', 'salsicc', 'frutta', 'verdur', 'carot', 'spinaci', 'limon', 'mortadell', 'bresaola', 'fiordilatte', 'scamorz', 'gorgonzol', 'asiago'];
@@ -79,7 +84,7 @@ const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ
 const stem = w => w.length >= 4 ? w.slice(0, -1) : w;
 function same(a, b) { a = norm(a); b = norm(b); if (!a || !b) return false; if (a === b) return true; const A = a.split(' ').map(stem), B = b.split(' ').map(stem); const [s, l] = A.length <= B.length ? [A, B] : [B, A]; return s.every(w => l.includes(w)) }
 function guessLuogo(n) { n = norm(n); if (FREEZER_KW.some(k => n.includes(k))) return 'freezer'; if (FRIGO_KW.some(k => n.includes(k))) return 'frigo'; return 'dispensa' }
-const UMAP = { g: 'g', gr: 'g', grammi: 'g', grammo: 'g', kg: 'kg', chili: 'kg', ml: 'ml', l: 'l', lt: 'l', litro: 'l', litri: 'l', pz: 'pz', pezzi: 'pz', conf: 'conf', confezione: 'conf', confezioni: 'conf', cucchiaio: 'cucchiai', cucchiai: 'cucchiai', cucchiaino: 'cucchiai', cucchiaini: 'cucchiai', spicchio: 'spicchi', spicchi: 'spicchi', fetta: 'fette', fette: 'fette' };
+const UMAP = { g: 'g', gr: 'g', grammi: 'g', grammo: 'g', kg: 'kg', chili: 'kg', ml: 'ml', l: 'l', lt: 'l', litro: 'l', litri: 'l', pz: 'pz', pezzi: 'pz', conf: 'conf', confezione: 'conf', confezioni: 'conf', cucchiaio: 'cucchiai', cucchiai: 'cucchiai', cucchiaino: 'cucchiai', cucchiaini: 'cucchiai', spicchio: 'spicchi', spicchi: 'spicchi', fetta: 'fette', fette: 'fette', vasetto: 'vasetti', vasetti: 'vasetti', barattolo: 'barattoli', barattoli: 'barattoli', bottiglia: 'bottiglie', bottiglie: 'bottiglie', scatola: 'scatole', scatole: 'scatole', pacco: 'pacchi', pacchi: 'pacchi', pacchetto: 'pacchi', pacchetti: 'pacchi', bustina: 'bustine', bustine: 'bustine', tubetto: 'tubetti', tubetti: 'tubetti', lattina: 'lattine', lattine: 'lattine', rotolo: 'rotoli', rotoli: 'rotoli' };
 function parseLine(s) {
   s = String(s).trim().replace(/^[-*•]\s*/, ''); if (!s) return null; let q = null, u = 'pz', n = s;
   if (/\s*q\.?\s?b\.?$/i.test(n)) return { n: n.replace(/\s*q\.?\s?b\.?$/i, '').trim(), q: null, u: 'qb' };
@@ -100,16 +105,17 @@ function guessTrack(name) { const n = ' ' + norm(name) + ' '; const toks = norm(
 const LEVELS = [['pieno', 'Piena'], ['meta', 'Metà'], ['poco', 'Poco']];
 const isLv = d => d && d.track === 'livello';
 const lvBar = d => { const n = d.lvl === 'poco' ? 1 : d.lvl === 'meta' ? 2 : 3; return `<span class="lv l${n}" aria-label="${LEVELS.find(x => x[0] === (d.lvl || 'pieno'))[1]}"><i></i><i></i><i></i></span>` };
-const lvText = d => { const q = typeof d.qty === 'number' ? d.qty : 1; const l = d.lvl === 'poco' ? 'quasi finita' : d.lvl === 'meta' ? 'a metà' : ''; return q > 1 ? `${numFmt.format(q)} conf${l ? ', una ' + l : ''}` : l ? cap(l) : 'Piena' };
+const lvText = d => { const q = typeof d.qty === 'number' ? d.qty : 1; const u = d.unit || 'conf'; const l = d.lvl === 'poco' ? 'quasi finita' : d.lvl === 'meta' ? 'a metà' : ''; if (!isPack(u)) return `${fmtQ(q, u)}${l ? ', ' + l : ''}`; return q > 1 ? `${numFmt.format(q)} ${uLabel(u, q)}${l ? ', uno ' + l.replace('finita', 'finito') : ''}` : l ? cap(l) : 'Piena' };
+const lvQty = d => { const q = typeof d.qty === 'number' ? d.qty : 1; const u = d.unit || 'conf'; return isPack(u) ? (q > 1 || u !== 'conf' ? ` ${numFmt.format(q)} ${uLabel(u, q)}` : '') : ' ' + fmtQ(q, u) };
 function setLevel(d, lvl, quiet) {
-  d = S.disp.find(x => x.id === d.id) || d; const q = typeof d.qty === 'number' ? d.qty : 1;
-  logA(`ha segnato ${d.name}: ${lvl === 'finito' ? (q > 1 ? 'confezione finita, aperta la successiva' : 'finito') : lvl === 'poco' ? 'quasi finito' : lvl === 'meta' ? 'a metà' : 'pieno'}`);
+  d = S.disp.find(x => x.id === d.id) || d; const q = typeof d.qty === 'number' ? d.qty : 1; const pk = isPack(d.unit), spare = pk && q > 1;
+  logA(`ha segnato ${d.name}: ${lvl === 'finito' ? (spare ? 'confezione finita, aperta la successiva' : 'finito') : lvl === 'poco' ? 'quasi finito' : lvl === 'meta' ? 'a metà' : 'pieno'}`);
   if (lvl === 'finito') {
-    if (q > 1) { save('dispensa', d.id, { ...d, qty: round(q - 1), lvl: 'pieno' }); if (!quiet) toast(`${d.name}: aperta una nuova confezione`); return }
-    save('dispensa', d.id, { ...d, qty: 0, lvl: 'pieno' }); addToSpesa([{ name: d.name, qty: null, unit: 'conf' }]); if (!quiet) toast(`${d.name} finito, messo in spesa`); return
+    if (spare) { save('dispensa', d.id, { ...d, qty: round(q - 1), lvl: 'pieno' }); if (!quiet) toast(`${d.name}: aperta una nuova confezione`); return }
+    save('dispensa', d.id, { ...d, qty: 0, lvl: 'pieno' }); addToSpesa([{ name: d.name, qty: null, unit: pk ? d.unit || 'conf' : 'conf' }]); if (!quiet) toast(`${d.name} finito, messo in spesa`); return
   }
   save('dispensa', d.id, { ...d, lvl });
-  if (lvl === 'poco' && q <= 1 && !S.spesa.some(x => !x.done && same(x.name, d.name))) { addToSpesa([{ name: d.name, qty: null, unit: 'conf' }]); if (!quiet) toast(`${d.name} quasi finito: aggiunto alla spesa`) }
+  if (lvl === 'poco' && !spare && !S.spesa.some(x => !x.done && same(x.name, d.name))) { addToSpesa([{ name: d.name, qty: null, unit: pk ? d.unit || 'conf' : 'conf' }]); if (!quiet) toast(`${d.name} quasi finito: aggiunto alla spesa`) }
 }
 // dopo aver cucinato: un tocco per dire com'è rimasto ciò che si misura "per livello"
 function levelAsk(ids) {
@@ -290,8 +296,8 @@ const plusDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return
 function mergeDisp(x) {
   if (!x.scad && !S.disp.some(d => same(d.name, x.name))) { const sd = shelfDays(x.name, x.luogo || guessLuogo(x.name)); if (sd && !guessTrack(x.name)) { x = { ...x, scad: plusDays(sd), scadStima: true } } }
   const lvEx = S.disp.find(d => isLv(d) && same(d.name, x.name));
-  if (lvEx) { const add = x.unit === 'conf' || x.unit === 'pz' ? (x.qty || 1) : 1; const was = zero(lvEx) ? 0 : (lvEx.qty ?? 1); save('dispensa', lvEx.id, { ...lvEx, qty: round(was + add), lvl: was ? lvEx.lvl || 'pieno' : 'pieno', scad: x.scad || lvEx.scad || '' }); return }
-  if (!S.disp.some(d => same(d.name, x.name)) && guessTrack(x.name)) { save('dispensa', null, { name: x.name, qty: x.unit === 'conf' || x.unit === 'pz' ? (x.qty || 1) : 1, unit: 'conf', track: 'livello', lvl: 'pieno', luogo: x.luogo || guessLuogo(x.name), cat: CAT_L[x.cat] ? x.cat : guessCat(x.name), scad: x.scad || '' }); return }
+  if (lvEx) { const eu = lvEx.unit || 'conf'; let add = 1; if (x.unit === eu) add = x.qty || 1; else if (!isPack(eu) && x.qty != null) { const [a, ba] = toBase(x.qty, x.unit), [, bb] = toBase(1, eu); if (ba === bb) add = a / (BASE[eu] ? BASE[eu][1] : 1) } else if (isPack(eu) && isPack(x.unit)) add = x.qty || 1; const was = zero(lvEx) ? 0 : (lvEx.qty ?? 1); save('dispensa', lvEx.id, { ...lvEx, qty: round(was + add), lvl: was ? lvEx.lvl || 'pieno' : 'pieno', scad: x.scad || lvEx.scad || '' }); return }
+  if (!S.disp.some(d => same(d.name, x.name)) && guessTrack(x.name)) { save('dispensa', null, { name: x.name, qty: x.qty || 1, unit: LV_UNITS.includes(x.unit) && x.unit !== 'pz' ? x.unit : 'conf', track: 'livello', lvl: 'pieno', luogo: x.luogo || guessLuogo(x.name), cat: CAT_L[x.cat] ? x.cat : guessCat(x.name), scad: x.scad || '' }); return }
   const u = x.unit || 'pz'; const ex = S.disp.find(d => same(d.name, x.name) && (d.unit || 'pz') === u && (!x.luogo || d.luogo === x.luogo));
   if (ex) { const qty = ex.qty == null || x.qty == null ? (x.qty ?? ex.qty ?? null) : round(Math.max(0, ex.qty) + x.qty); save('dispensa', ex.id, { ...ex, qty, scad: x.scad || ex.scad || '' }) }
   else save('dispensa', null, { name: x.name, qty: x.qty ?? null, unit: u, luogo: x.luogo || guessLuogo(x.name), cat: CAT_L[x.cat] ? x.cat : guessCat(x.name), scad: x.scad || '', scadStima: !!x.scadStima })
@@ -401,7 +407,7 @@ function renderDisp() {
   const row = (d, showCat) => {
     const dd = d.scad ? daysTo(d.scad) : null; const bits = [isLv(d) && d.lvl && d.lvl !== 'pieno' ? lvText(d) : '', S.luogo === 'tutto' ? LUOGO_L[d.luogo] : '', showCat ? CAT_L[catOf(d)] : ''].filter(Boolean).map(esc);
     if (d.scad) bits.push(`<span class="sc${dd < 0 ? ' bad' : dd <= 3 ? ' warn' : ''}">${dd < 0 ? (d.scadStima ? 'forse scaduto' : 'scaduto') : (d.scadStima ? 'scade circa ' : 'scade ') + scadTxt(d.scad)}</span>`);
-    return `<button class="ri" data-act="dedit" data-id="${d.id}"><span class="rn"><b>${esc(d.name)}</b>${bits.length ? `<small>${bits.join(' · ')}</small>` : ''}</span><span class="rq">${isLv(d) ? `${lvBar(d)}${(d.qty ?? 1) > 1 ? ' ×' + numFmt.format(d.qty) : ''}` : d.unit === 'qb' || d.qty == null ? '' : fmtQ(d.qty, d.unit)}</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>`
+    return `<button class="ri" data-act="dedit" data-id="${d.id}"><span class="rn"><b>${esc(d.name)}</b>${bits.length ? `<small>${bits.join(' · ')}</small>` : ''}</span><span class="rq">${isLv(d) ? `${lvBar(d)}${lvQty(d)}` : d.unit === 'qb' || d.qty == null ? '' : fmtQ(d.qty, d.unit)}</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>`
   };
   const sec = (id, title, n, body, cls = '') => { const closed = !q && S.fold.includes(id); return `<section class="grp ${cls}${closed ? ' closed' : ''}"><h3 data-act="fold" data-v="${id}">${title} <small>${n}</small>${IC.chev}</h3><div class="card">${body}</div></section>` };
   let h = '';
@@ -474,15 +480,16 @@ function dispModal(d) {
   <p class="hint" id="trkh" style="margin:-4px 2px 0">${isLv(d) ? 'Per le cose che usi poco alla volta: segni solo se è piena, a metà o quasi finita.' : 'Pezzi, grammi, litri: si scala da solo quando cucini.'}</p>
   <div id="qx"><label>Quantità</label><div class="stepper"><button type="button" class="ib" id="mn" aria-label="Meno">−</button><input name="qty" type="number" inputmode="decimal" step="any" min="0" value="${isLv(d) ? '' : d.qty ?? ''}" aria-label="Quantità"><button type="button" class="ib" id="pl" aria-label="Più">+</button><select name="unit" aria-label="Unità">${UNITS.map(u => `<option${u === (isLv(d) ? 'pz' : d.unit || 'pz') ? ' selected' : ''}>${u}</option>`).join('')}</select></div></div>
   <div id="lx"><label>Quanto ne resta</label><div class="segc lvsel">${LEVELS.map(([k, l]) => `<label><input type="radio" name="lvl" value="${k}"${(d.lvl || 'pieno') === k ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
-  <label style="margin-top:10px">Confezioni in casa <small>compresa quella aperta</small></label><div class="stepper"><button type="button" class="ib" id="cmn" aria-label="Meno">−</button><input name="conf" type="number" inputmode="numeric" step="1" min="0" value="${isLv(d) ? d.qty ?? 1 : 1}" aria-label="Confezioni"><button type="button" class="ib" id="cpl" aria-label="Più">+</button></div></div>
+  <label style="margin-top:10px">Quante ne hai <small id="cuh">compresa quella aperta</small></label><div class="stepper"><button type="button" class="ib" id="cmn" aria-label="Meno">−</button><input name="conf" type="number" inputmode="decimal" step="any" min="0" value="${isLv(d) ? d.qty ?? 1 : 1}" aria-label="Quantità"><button type="button" class="ib" id="cpl" aria-label="Più">+</button><select name="cu" aria-label="Unità">${LV_UNITS.map(u => `<option${u === (isLv(d) ? d.unit || 'conf' : 'conf') ? ' selected' : ''}>${u}</option>`).join('')}</select></div></div>
   <label>Dove</label><div class="segc">${LUOGHI.map(([k, l]) => `<label><input type="radio" name="luogo" value="${k}"${k === d.luogo ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
   <div class="row"><label>Categoria<select name="cat"><option value="">Automatica</option>${CATS.map(([k, l]) => `<option value="${k}"${k === d.cat ? ' selected' : ''}>${l}</option>`).join('')}</select></label><label>Scadenza <small id="sst">${d.scadStima ? 'stimata' : ''}</small><input name="scad" type="date" value="${esc(d.scad || '')}"></label></div>
   <div class="acts">${isNew ? '' : '<button type="button" class="bd" id="del">Elimina</button><button type="button" class="bg" id="fin">Finito</button>'}${isNew ? '<button class="bg" value="more">Salva e un altro</button>' : ''}<button class="bp" value="ok">Salva</button></div></form>`, m => {
     const f = m.querySelector('#f'); const qi = E(f, 'qty'); let touched = !!d.luogo, trkTouched = !isNew;
     const curTrk = () => (f.querySelector('input[name=trk]:checked') || {}).value || '';
     const showTrk = () => { const lv = curTrk() === 'livello'; m.querySelector('#qx').hidden = lv; m.querySelector('#lx').hidden = !lv; m.querySelector('#trkh').textContent = lv ? 'Per le cose che usi poco alla volta: segni solo se è piena, a metà o quasi finita. Quando è quasi finita va in spesa da sola.' : 'Pezzi, grammi, litri: si scala da solo quando cucini.' };
-    f.querySelectorAll('input[name=trk]').forEach(r => r.onchange = () => { trkTouched = true; showTrk() }); showTrk();
-    const ci = E(f, 'conf'); m.querySelector('#cmn').onclick = () => ci.value = Math.max(0, (parseInt(ci.value) || 0) - 1); m.querySelector('#cpl').onclick = () => ci.value = (parseInt(ci.value) || 0) + 1;
+    f.querySelectorAll('input[name=trk]').forEach(r => r.onchange = () => { trkTouched = true; if (curTrk() === 'livello' && qi.value) { E(f, 'conf').value = qi.value; const u = E(f, 'unit').value; if (LV_UNITS.includes(u) && u !== 'pz') E(f, 'cu').value = u } else if (curTrk() !== 'livello') { qi.value = E(f, 'conf').value; if (UNITS.includes(E(f, 'cu').value)) E(f, 'unit').value = E(f, 'cu').value } showTrk() }); showTrk();
+    const ci = E(f, 'conf'); const cstep = () => { const u = E(f, 'cu').value; return isPack(u) ? 1 : stepFor(u) }; const cuh = () => m.querySelector('#cuh').textContent = isPack(E(f, 'cu').value) ? 'compresa quella aperta' : 'più o meno, quanto ne resta in tutto'; E(f, 'cu').onchange = cuh; cuh();
+    m.querySelector('#cmn').onclick = () => ci.value = Math.max(0, round((parseFloat(ci.value) || 0) - cstep())); m.querySelector('#cpl').onclick = () => ci.value = round((parseFloat(ci.value) || 0) + cstep());
     const step = v => { const q = Math.max(0, round((parseFloat(qi.value) || 0) + v * stepFor(E(f, 'unit').value))); qi.value = q };
     m.querySelector('#mn').onclick = () => step(-1); m.querySelector('#pl').onclick = () => step(1);
     f.querySelectorAll('input[name=luogo]').forEach(r => r.onchange = () => touched = true);
@@ -495,10 +502,10 @@ function dispModal(d) {
     f.onsubmit = e => {
       e.preventDefault(); const name = E(f, 'name').value.trim(); if (!name) return; const qs = qi.value; const lr = f.querySelector('input[name=luogo]:checked'); const luogo = lr ? lr.value : guessLuogo(name);
       const lv = curTrk() === 'livello'; const base = { ...(isNew ? {} : d), name, luogo, cat: E(f, 'cat').value || guessCat(name), scad: E(f, 'scad').value || '', scadStima: scadAuto && !!E(f, 'scad').value };
-      const nl = (f.querySelector('input[name=lvl]:checked') || {}).value || 'pieno'; const nc = parseInt(ci.value); const confs = isNaN(nc) ? 1 : Math.max(0, nc);
-      const rec = lv ? { ...base, track: 'livello', trackSet: true, unit: 'conf', qty: confs, lvl: nl } : { ...base, track: '', trackSet: true, lvl: '', qty: qs === '' ? null : parseFloat(qs), unit: E(f, 'unit').value };
+      const nl = (f.querySelector('input[name=lvl]:checked') || {}).value || 'pieno'; const nc = parseFloat(ci.value); const confs = isNaN(nc) ? 1 : Math.max(0, round(nc)); const cu = E(f, 'cu').value;
+      const rec = lv ? { ...base, track: 'livello', trackSet: true, unit: cu, qty: confs, lvl: nl } : { ...base, track: '', trackSet: true, lvl: '', qty: qs === '' ? null : parseFloat(qs), unit: E(f, 'unit').value };
       const id = save('dispensa', isNew ? null : d.id, rec); if (isNew) logA('ha aggiunto in dispensa: ' + name);
-      if (lv && nl === 'poco' && confs <= 1 && (isNew || d.lvl !== 'poco') && !S.spesa.some(x => !x.done && same(x.name, name))) { addToSpesa([{ name, qty: null, unit: 'conf' }]); toast(name + ' quasi finito: aggiunto alla spesa') }
+      if (lv && nl === 'poco' && (!isPack(cu) || confs <= 1) && (isNew || d.lvl !== 'poco') && !S.spesa.some(x => !x.done && same(x.name, name))) { addToSpesa([{ name, qty: null, unit: 'conf' }]); toast(name + ' quasi finito: aggiunto alla spesa') }
       if (e.submitter && e.submitter.value === 'more') { toast(name + ' aggiunto'); dispModal(); const r2 = $('#f').querySelector(`input[name=luogo][value=${luogo}]`); if (r2 && lr) r2.checked = true } else close()
     };
     const x = m.querySelector('#del'); if (x) { let armed = false; x.onclick = () => { if (!armed) { armed = true; x.textContent = 'Sicuro?'; return } del('dispensa', d.id); logA('ha tolto dalla dispensa: ' + d.name); close() } }
@@ -910,7 +917,7 @@ function go(t) { if (!TABS.includes(t)) t = 'settimana'; if (t === S.tab) { wind
 document.addEventListener('click', e => {
   if (e.target.id === 'modal') { close(); return } const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act, ds = b.dataset;
   if (a === 'close') close(); else if (a === 'tab') go(ds.v); else if (a === 'who') whoModal(); else if (a === 'settings') settingsModal();
-  else if (a === 'wk') { S.week += +ds.v; S.sel = null; subWeek(); render() } else if (a === 'wk0') { S.week = 0; S.sel = null; subWeek(); render() } else if (a === 'sel') { S.sel = ds.d; render() } else if (a === 'pick') togglePick(ds.d, ds.meal, +ds.i); else if (a === 'cook') cookMeal(ds.d, ds.meal); else if (a === 'leftover') leftoverModal(ds.d, ds.meal); else if (a === 'spese') speseModal(); else if (a === 'uncook') undoCook(ds.d, ds.meal); else if (a === 'dplus') addSheet(); else if (a === 'fold') { const i = S.fold.indexOf(ds.v); if (i >= 0) S.fold.splice(i, 1); else S.fold.push(ds.v); LS.set('fold', S.fold); render() } else if (a === 'ddel') del('dispensa', ds.id); else if (a === 'migok' || a === 'migno') { const L = S.disp.filter(d => !isLv(d) && !d.trackSet && !zero(d) && guessTrack(d.name)); L.forEach(d => save('dispensa', d.id, a === 'migok' ? { ...d, track: 'livello', trackSet: true, unit: 'conf', qty: d.unit === 'conf' || d.unit === 'pz' ? (d.qty || 1) : 1, lvl: 'pieno' } : { ...d, trackSet: true })); if (a === 'migok') toast(`${L.length} prodotti ora si contano per livello`) }
+  else if (a === 'wk') { S.week += +ds.v; S.sel = null; subWeek(); render() } else if (a === 'wk0') { S.week = 0; S.sel = null; subWeek(); render() } else if (a === 'sel') { S.sel = ds.d; render() } else if (a === 'pick') togglePick(ds.d, ds.meal, +ds.i); else if (a === 'cook') cookMeal(ds.d, ds.meal); else if (a === 'leftover') leftoverModal(ds.d, ds.meal); else if (a === 'spese') speseModal(); else if (a === 'uncook') undoCook(ds.d, ds.meal); else if (a === 'dplus') addSheet(); else if (a === 'fold') { const i = S.fold.indexOf(ds.v); if (i >= 0) S.fold.splice(i, 1); else S.fold.push(ds.v); LS.set('fold', S.fold); render() } else if (a === 'ddel') del('dispensa', ds.id); else if (a === 'migok' || a === 'migno') { const L = S.disp.filter(d => !isLv(d) && !d.trackSet && !zero(d) && guessTrack(d.name)); L.forEach(d => save('dispensa', d.id, a === 'migok' ? { ...d, track: 'livello', trackSet: true, unit: LV_UNITS.includes(d.unit) && d.unit !== 'pz' ? d.unit : 'conf', qty: d.qty || 1, lvl: 'pieno' } : { ...d, trackSet: true })); if (a === 'migok') toast(`${L.length} prodotti ora si contano per livello`) }
   else if (a === 'tog') { const p = pres(ds.d, ds.m); const on = p[ds.meal] === false; setPres(ds.d, ds.m, { [ds.meal]: on }); const who = (members().find(x => x.id === ds.m) || {}).name; logA(`ha segnato ${who === meName() ? 'di' : who} ${on ? 'esserci' : 'non esserci'} a ${MEALS.find(x => x[0] === ds.meal)[1].toLowerCase()} di ${dayFmt.format(dt(ds.d))}`.replace('segnato di esserci', 'segnato che c\'è').replace('segnato di non esserci', 'segnato che non c\'è')) }
   else if (a === 'menu') menuModal(ds.d, ds.meal); else if (a === 'imp') impModal(ds.d);
   else if (a === 'delimp') { const p = pres(ds.d, ds.m); setPres(ds.d, ds.m, { imp: (p.imp || []).filter((_, i) => i !== +ds.i) }) }
