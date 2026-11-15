@@ -283,3 +283,63 @@ details pre{white-space:pre-wrap;background:var(--card);padding:10px;border-radi
 .igo small{color:var(--mut);font-weight:600;white-space:nowrap}
 .sheet .ig input.iq{width:68px!important;flex:none;min-height:32px!important;padding:2px 6px!important}
 .ig b{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* prodotti "a occhio" */
+.lv{display:inline-flex;gap:2px;vertical-align:middle;margin-right:2px}
+.lv i{width:7px;height:14px;border-radius:2px;background:var(--card2)}
+.lv.l3 i{background:var(--ok)}
+.lv.l2 i:nth-child(-n+2){background:var(--warn)}
+.lv.l1 i:first-child{background:var(--bad)}
+.upo{font-style:italic;color:var(--mut);padding-right:4px}
+.la{padding:10px 0;border-bottom:1px solid var(--line)}
+.la b{display:block;margin-bottom:6px}
+.la .segc{margin:0}
+.alert.mig{display:block;cursor:default}
+.migb{display:flex;gap:6px;justify-content:flex-end;margin-top:8px}
+.sm.on{background:var(--tom);color:#fff}
+
+/* spesa per reparto + proposte */
+.sph{list-style:none;font-weight:800;font-size:13px;color:var(--mut);margin:12px 4px 0}
+.sph small{font-weight:700}
+.sugg{background:var(--card);box-shadow:var(--sh);border-radius:16px;padding:10px 12px;margin-bottom:6px}
+.sugg>span{display:block;font-size:12px;font-weight:800;color:var(--mut);margin-bottom:6px}
+.sugg>div{display:flex;flex-wrap:wrap;gap:6px}
+.igs.fin{color:var(--bad)}
+nav .bdg.warn{background:var(--mus);color:#3a2a00}
+.cook.done>span:last-child{display:flex;gap:4px}
+.stepper.sm2{margin-top:6px}
+.stepper.sm2 .ib{width:36px;height:36px;font-size:20px}
+.stepper.sm2 input{max-width:70px;min-height:36px!important}
+
+/* abitudini */
+.hgrid{display:grid;grid-template-columns:44px repeat(3,minmax(0,1fr));gap:5px;margin-top:12px;align-items:center}
+.hh{font-size:12px;font-weight:800;color:var(--mut);text-align:center}
+.hd{font-weight:800;font-size:14px}
+.hc{min-height:40px;border-radius:10px;border:1.5px dashed color-mix(in srgb,var(--mut) 45%,transparent);background:none;color:var(--mut);font-weight:700;font-size:13px}
+.hc.on{border:0;background:color-mix(in srgb,var(--c) 16%,var(--card));color:var(--ink)}
+/* attività */
+.actl{list-style:none;padding:0;margin:0;background:var(--card);border-radius:14px;overflow:hidden}
+.actl li{display:flex;gap:10px;padding:9px 12px;border-top:1px solid var(--line);font-size:14px}
+.actl li:first-child{border-top:0}
+.actl .t{color:var(--mut);font-variant-numeric:tabular-nums;flex:none}
+/* ricorrenti */
+.badge.rico{display:inline-flex;align-items:center;gap:4px;background:var(--card2);color:var(--mut)}
+.badge.rico svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2}
+/* spese */
+.spm{width:100%;display:flex;align-items:center;gap:12px;background:var(--card);box-shadow:var(--sh);border:0;border-radius:16px;padding:12px 14px;margin-top:14px;text-align:left}
+.spm>span:first-child{display:grid;flex:none}
+.spm small{color:var(--mut);font-weight:700;font-size:12px}
+.spm b{font:800 22px Sora,sans-serif}
+.spm .sub{flex:1;font-size:13px}
+.mhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-right:44px}
+.mhead h2{margin:0;font-size:20px;text-align:center;flex:1}
+.mhead .ib{box-shadow:none;background:var(--card2)}
+.bigtot{font:800 40px/1.1 Sora,sans-serif;text-align:center;margin:14px 0 2px}
+.bars{display:grid;gap:8px}
+.br{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:10px;align-items:center;font-size:14px}
+.br>span:first-child{font-weight:700}
+.bt{height:10px;border-radius:9px;background:var(--card2);overflow:hidden}
+.bt i{display:block;height:100%;background:var(--tom);border-radius:9px}
+.br b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.rv.wp .n{grid-column:2/4}.rv.wp .pr{grid-column:4/5}
+.rtot{margin-top:12px}

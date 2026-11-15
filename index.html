@@ -36,13 +36,14 @@
   <form id="spadd" class="bar-top"><input id="spin" class="srch" placeholder="Es. 1 kg mele, 6 uova, pane" autocomplete="off"><button class="bp">Aggiungi</button></form>
   <ul class="list" id="slist"></ul>
   <div class="spf" id="spf"></div>
+  <div id="spm"></div>
   <div class="spf"><button class="bg keep" data-act="keepspesa"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></svg>Manda a Keep</button><button class="bg" data-act="scan">Scontrino</button></div>
   <p class="hint">In Keep, per avere le caselle da spuntare: apri la nota, tocca ⋮ e scegli "Mostra caselle di controllo".</p>
 </section>
 </main>
 <nav id="nav" hidden><div>
 <button data-act="tab" data-v="settimana"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Settimana</button>
-<button data-act="tab" data-v="dispensa"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M5 10h14M9 5.5v2M9 13v3"/></svg>Dispensa</button>
+<button data-act="tab" data-v="dispensa"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M5 10h14M9 5.5v2M9 13v3"/></svg>Dispensa<span class="bdg warn" id="bdgd" hidden></span></button>
 <button data-act="tab" data-v="ricette"><svg viewBox="0 0 24 24"><path d="M3 11h18v3a6 6 0 0 1-6 6H9a6 6 0 0 1-6-6z"/><path d="M8 7c0-1.2 1-1.8 1-3M12 7c0-1.2 1-1.8 1-3M16 7c0-1.2 1-1.8 1-3"/></svg>Ricette</button>
 <button data-act="tab" data-v="spesa"><svg viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h11L21 7H6.2"/><circle cx="9" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></svg>Spesa<span class="bdg" id="bdg" hidden></span></button>
 </div></nav>
