@@ -343,3 +343,86 @@ nav .bdg.warn{background:var(--mus);color:#3a2a00}
 .br b{font-variant-numeric:tabular-nums;white-space:nowrap}
 .rv.wp .n{grid-column:2/4}.rv.wp .pr{grid-column:4/5}
 .rtot{margin-top:12px}
+
+/* ===== versione 2 ===== */
+.note.upd{display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--tomsoft)}
+#toast{display:flex;align-items:center;gap:12px;text-align:left}
+#toast.act.show{pointer-events:auto}
+#toast button{border:0;background:none;color:var(--mus);font-weight:800;padding:4px 2px;flex:none}
+.qa{display:flex;gap:8px;align-items:center;margin:0 0 4px}
+.sheet form.qa{display:flex;margin-top:10px}
+.qa input{flex:1;min-height:46px;border-radius:12px;border:0;background:var(--card2);padding:0 14px;font-size:16px;width:auto}
+.sheet .qa input{background:var(--card);border:1px solid var(--line)}
+.mic{width:46px;height:46px;border-radius:50%;border:0;background:var(--card2);display:grid;place-items:center;flex:none;padding:0}
+.mic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.mic.on{background:var(--tom);color:#fff;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.6}}
+#spmic:empty{display:none}
+.chip{border:0;background:var(--card);box-shadow:var(--sh);border-radius:99px;min-height:38px;padding:0 14px;font-weight:700;font-size:14px;color:var(--mut)}
+.chip.on{color:var(--ink)}
+.tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px}
+.tools .bg{background:var(--card);box-shadow:var(--sh);font-size:14px;padding:0 10px;font-weight:700}
+details.more{background:var(--card);border-radius:14px;padding:0 12px;margin:0}
+details.more summary{font-weight:700;font-size:14px;padding:12px 0;cursor:pointer;color:var(--tomt)}
+details.more[open]{padding-bottom:12px}
+details.more .segc{margin:4px 0}
+.sheet details.more input:not([type=radio]),.sheet details.more select{background:var(--bg)}
+/* menù: righe dei piatti */
+.dr{grid-template-columns:minmax(0,1fr) auto}
+.dr .dt{grid-column:1/2}
+.dr .segc.mini{grid-column:1/3}
+.dsum{grid-column:1/3;display:flex;align-items:center;justify-content:space-between;gap:10px;border:0;background:none;padding:2px 2px;text-align:left;font-size:13px;color:var(--mut)}
+.dsum b{color:var(--tomt);font-size:13px;flex:none}
+.dx{grid-column:1/3;display:grid;gap:8px}
+.dx .ingw,.dx .igp{grid-column:auto}
+.mfoot{display:flex;gap:6px;margin-top:8px}
+.mfoot button{flex:1;min-height:36px;border-radius:10px;border:1px dashed color-mix(in srgb,var(--mut) 40%,transparent);background:none;color:var(--mut);font-weight:700;font-size:13px}
+.mfoot button.on{border:0;background:var(--card2);color:var(--ink)}
+.twarn{margin:8px 0 0;background:var(--warnsoft);border-radius:10px;padding:8px 10px;font-size:13px;font-weight:700;color:var(--warn)}
+.plan{display:grid;gap:8px;margin-top:4px}
+.plan .bg{background:var(--card);box-shadow:var(--sh);display:flex;align-items:center;justify-content:center;gap:8px}
+.plan svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.brief{display:flex;gap:6px;align-items:flex-start;background:var(--card);box-shadow:var(--sh);border-radius:14px;padding:10px 6px 10px 14px;margin-bottom:12px;font-size:14px}
+.brief p{margin:0;flex:1}
+/* scontrini e foto: righe compatte */
+.rv.rvc{display:block;padding:6px 0}
+.rvh{display:flex;align-items:center;gap:10px}
+.rvh .c{width:22px;height:22px;accent-color:var(--tom);flex:none}
+.rvt{flex:1;display:grid;text-align:left;border:0;background:none;padding:4px 0}
+.rvt small{color:var(--mut);font-size:13px}
+.rvx{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:6px 0 4px 32px}
+.rvx .n{grid-column:1/5}.rv.wp .rvx .n{grid-column:1/4}.rvx .pr{grid-column:4/5}
+.rvx .k,.rvx .q,.rvx .u,.rvx .l{grid-column:auto}
+/* guida */
+.tdots{display:flex;gap:6px;margin:0 0 12px}
+.tdots i{width:8px;height:8px;border-radius:50%;background:var(--card2)}.tdots i.on{background:var(--tom)}
+.tourp{font-size:17px;line-height:1.5;margin:8px 0 4px}
+/* piatti mangiati */
+.rc.eat>div{background:var(--card);box-shadow:var(--sh);border-radius:var(--r);padding:12px 14px;display:grid;gap:6px}
+.rc.eat .en{border:0;background:none;padding:0;text-align:left;display:grid;gap:2px;width:100%;box-shadow:none;border-radius:0}
+.rc.eat em{font-style:normal;color:var(--warn);font-weight:700}
+.stars{display:flex;gap:2px}
+.stars button{border:0;background:none;font-size:24px;line-height:1;color:var(--card2);padding:2px 3px;width:auto}
+.stars button.on{color:var(--mus)}
+/* proposta settimana */
+.pr2{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
+.pr2 label{flex:1;display:flex;flex-direction:row;align-items:center;gap:12px;font-weight:400}
+.pr2 input{width:22px;height:22px;accent-color:var(--tom);flex:none}
+.pr2 span{display:grid}
+.pr2 small{color:var(--mut);font-size:12px}
+.pr2 b{font-size:16px}
+/* supermercato */
+.sheet.full{max-width:none;width:100%;height:100vh;height:100dvh;max-height:none;border-radius:0;padding-top:calc(20px + env(safe-area-inset-top))}
+#modal:has(.sheet.full){align-items:stretch}
+.shr{display:flex;align-items:center;gap:16px;width:100%;min-height:64px;border:0;background:var(--card);border-radius:16px;padding:10px 16px;margin-bottom:8px;text-align:left;font-size:20px}
+.shr i{width:28px;height:28px;border-radius:50%;border:2px solid var(--mut);flex:none}
+.shr span{display:grid}.shr small{font-size:15px;color:var(--mut)}
+.shr.done{opacity:.5}.shr.done b{text-decoration:line-through}.shr.done i{background:var(--ok);border-color:var(--ok)}
+/* fotocamera */
+.cam{position:relative;background:#000;border-radius:16px;overflow:hidden;aspect-ratio:4/3;margin-bottom:8px}
+.cam video{width:100%;height:100%;object-fit:cover}
+.aim{position:absolute;left:12%;right:12%;top:38%;height:24%;border:2px solid rgba(255,255,255,.85);border-radius:12px}
+.stepper.big{justify-content:center;gap:24px;margin:10px 0}
+.stepper.big b{font:800 40px Sora,sans-serif;min-width:60px;text-align:center}
+.card label.ri{cursor:pointer;display:flex;flex-direction:row;font-weight:400}
+.card label.ri input{width:22px;height:22px;accent-color:var(--tom);flex:none}

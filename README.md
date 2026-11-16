@@ -57,3 +57,16 @@ Google non permette alle app di scrivere direttamente in Keep, quindi l'app usa 
 ## Sicurezza
 
 Ogni famiglia ha un codice casuale di 18 caratteri. Chi ha il link di invito può leggere e modificare i dati: mandalo solo in famiglia. Per ricominciare da zero su un telefono: ⚙︎ → **Esci dalla famiglia su questo telefono**.
+
+
+## Versione 2
+
+- **Backup**: una copia automatica a settimana (ne restano 4), una prima di ogni aggiornamento, e da Impostazioni → Backup e ripristino si può scaricare un file o ripristinare.
+- **Aggiunta veloce**: un solo campo, anche a voce: "2 l latte, 6 uova, pane". Quantità, posto, categoria e scadenza stimata li mette l'app.
+- **Schede di consumo**: l'app sa come si compra e come si usa ogni prodotto (pezzi, grammi, cucchiai, bustine, livello) e converte da sola. Tutto si può correggere dal prodotto, e la correzione vale per tutta la famiglia.
+- **Menù**: proposta della settimana, ospiti, chi cucina, avvisi sui gusti, avanzi, voto ai piatti.
+- **Spesa**: "Cosa manca per il menù", modalità supermercato, chi va a fare la spesa.
+- **Ricette**: importabili da foto, testo o link (con Gemini).
+- **Codici a barre** letti dal vivo, uno dopo l'altro.
+
+La chiave Gemini non va mai messa nei file del repository: si inserisce solo dentro l'app, in Impostazioni.
