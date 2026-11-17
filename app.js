@@ -270,6 +270,11 @@ function dberr(e) { console.warn(e); S.note = fbMsg(e); render() }
 /* ---------- writes ---------- */
 const KEY = { dispensa: 'disp', ricette: 'ric', spesa: 'spesa', spese: 'spese', libro: 'libro' };
 function save(c, id, data) { const arr = S[KEY[c]]; id = id || rid(); const v = { ...data }; delete v.id; const i = arr.findIndex(x => x.id === id); if (i >= 0) arr[i] = { id, ...v }; else arr.push({ id, ...v }); render(); if (F) F.fs.setDoc(dref(c, id), v).catch(werr); return id }
+function saveMany(c, list) {
+  const arr = S[KEY[c]]; const items = list.map(data => { const id = rid(); const v = { ...data }; delete v.id; arr.push({ id, ...v }); return [id, v] }); render();
+  if (F) { if (F.fs.writeBatch) { for (let i = 0; i < items.length; i += 400) { const b = F.fs.writeBatch(F.db); items.slice(i, i + 400).forEach(([id, v]) => b.set(dref(c, id), v)); b.commit().catch(werr) } } else items.forEach(([id, v]) => F.fs.setDoc(dref(c, id), v).catch(werr)) }
+  return items.map(x => x[0])
+}
 function del(c, id) { S[KEY[c]] = S[KEY[c]].filter(x => x.id !== id); render(); if (F) F.fs.deleteDoc(dref(c, id)).catch(werr) }
 function setPres(date, mid, patch) { const k = date + '_' + mid; S.pres[k] = { ...(S.pres[k] || {}), ...patch, date, mid }; render(); if (F) F.fs.setDoc(dref('presenze', k), { ...patch, date, mid }, { merge: true }).catch(werr) }
 function setMenu(k, mk, val) {
@@ -1688,7 +1693,7 @@ const SORTS = [['casa', 'cosa avete'], ['tempo', 'più veloci'], ['nome', 'nome'
 function filterBar(prop) {
   const f = S.rf || (S.rf = { tipo: '', fast: false, veg: false, can: false, fonte: '', sort: 'casa' });
   const c = (act, v, on, l) => `<button class="chip${on ? ' on' : ''}" data-act="${act}" data-v="${v}">${l}</button>`;
-  return `<div class="fbar">${c('rfs', '', false, 'Ordina: ' + (SORTS.find(s => s[0] === f.sort) || SORTS[0])[1] + ' ▾')}${c('rft', 'can', f.can, 'Si può fare')}${c('rft', 'fast', f.fast, 'Veloci')}${c('rft', 'veg', f.veg, 'Vegetariane')}${TIPI.map(([k, l]) => c('rftipo', k, f.tipo === k, l)).join('')}${(prop === 'libro' ? [...new Set(S.libro.map(r => r.fonte).filter(Boolean))].slice(0, 8).map(x => [x, x.length > 22 ? x.slice(0, 20) + '…' : x]) : prop ? [['GialloZafferano', 'GialloZafferano'], ['Cucchiaio d\'Argento', 'Cucchiaio'], ['gemini', 'Gemini']] : []).map(([k, l]) => c('rffonte', esc(k), f.fonte === k, esc(l))).join('')}</div>`
+  return `<div class="fbar">${c('rfs', '', false, 'Ordina: ' + (SORTS.find(s => s[0] === f.sort) || SORTS[0])[1] + ' ▾')}${c('rft', 'can', f.can, 'Si può fare')}${c('rft', 'fast', f.fast, 'Veloci')}${c('rft', 'veg', f.veg, 'Vegetariane')}${TIPI.map(([k, l]) => c('rftipo', k, f.tipo === k, l)).join('')}${(prop === 'libro' ? [...new Set(S.libro.map(r => r.fonte).filter(Boolean))].slice(0, 14).map(x => [x, x.length > 22 ? x.slice(0, 20) + '…' : x]) : prop ? [['GialloZafferano', 'GialloZafferano'], ['Cucchiaio d\'Argento', 'Cucchiaio'], ['gemini', 'Gemini']] : []).map(([k, l]) => c('rffonte', esc(k), f.fonte === k, esc(l))).join('')}</div>`
 }
 function applyFilters(L, prop) {
   const f = S.rf || {}; const q = norm(S.rq || '');
@@ -1702,10 +1707,10 @@ function renderProps() {
     + (PROPS.length && !L.length ? '<li class="empty">Nessuna proposta con questi filtri.</li>' : '') + (PROPS.length ? '<li class="pcl"><button class="lnk" data-act="pclear">Svuota le proposte</button></li>' : '')
 }
 function renderLibro() {
-  const L = applyFilters(S.libro, 'libro');
+  const L0 = applyFilters(S.libro, 'libro'); const L = L0.slice(0, S.lmax || 60);
   $('#rlist').innerHTML = (S.libro.length ? '' : '<li class="empty"><b>Il Libro mastro è vuoto.</b><br>Qui finiscono le ricette importate dai PDF o dai file: le sfogli, Gemini te le può proporre, e tra le tue Ricette metti solo quelle che ti piacciono. Tocca + e poi "Tante ricette insieme".</li>')
     + L.map(({ r, m }) => `<li class="rc prc"><button data-act="lopen" data-id="${esc(r.id)}"><span class="ih">${r.fonte ? `<span class="src lb">${esc(r.fonte)}</span>` : ''}${r.rid && S.ric.some(x => x.id === r.rid) ? '<span class="svd">✓ tra le ricette</span>' : ''}</span><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? r.tempo + ' min' : '', COURSE_L[tipoOf(r)] || '', isVeg(r) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</span><span class="mt">${m.miss.length ? `Mancano ${m.miss.length}: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto in casa'}</span></button></li>`).join('')
-    + (S.libro.length && !L.length ? '<li class="empty">Nessuna ricetta con questi filtri.</li>' : '')
+    + (S.libro.length && !L.length ? '<li class="empty">Nessuna ricetta con questi filtri.</li>' : '') + (L0.length > L.length ? `<li class="pcl"><button class="bg wide" data-act="lmore">Mostra altre (${L0.length - L.length})</button></li>` : '')
 }
 async function classifyRics() {
   const L = S.ric.filter(r => !r.tipo); if (!L.length || !gkey()) return; toast('Classifico ' + L.length + ' ricette…');
@@ -1763,7 +1768,7 @@ function bulkReview(L, label) {
     const upd = () => { const n = boxes.filter(b => b.checked).length; btn.textContent = n ? `Metti ${n === 1 ? '1 ricetta' : n + ' ricette'} nel Libro mastro` : 'Metti nel Libro mastro'; btn.disabled = !n };
     boxes.forEach(b => b.onchange = upd); upd();
     m.querySelector('#ball').onclick = () => { boxes.forEach(b => b.checked = true); upd() }; m.querySelector('#bnone').onclick = () => { boxes.forEach(b => b.checked = false); upd() };
-    btn.onclick = () => { const pick = boxes.filter(b => b.checked).map(b => L[+b.dataset.i]); const now = Date.now(); pick.forEach((r, i) => save('libro', null, { ...r, ts: now + i })); logA(`ha messo ${pick.length} ricette nel Libro mastro (${label})`); close(); S.rview = 'libro'; if (S.rf) S.rf.fonte = ''; go('ricette'); render(); toast(`${pick.length === 1 ? '1 ricetta' : pick.length + ' ricette'} nel Libro mastro`) };
+    btn.onclick = () => { const pick = boxes.filter(b => b.checked).map(b => L[+b.dataset.i]); const now = Date.now(); saveMany('libro', pick.map((r, i) => ({ ...r, ts: now + i }))); logA(`ha messo ${pick.length} ricette nel Libro mastro (${label})`); close(); S.rview = 'libro'; if (S.rf) S.rf.fonte = ''; go('ricette'); render(); toast(`${pick.length === 1 ? '1 ricetta' : pick.length + ' ricette'} nel Libro mastro`) };
   })
 }
 
@@ -1773,8 +1778,8 @@ document.addEventListener('click', e => {
   if (a === 'close') close(); else if (a === 'reload') location.reload(); else if (a === 'tab') go(ds.v); else if (a === 'live') liveScan(); else if (a === 'osp') guestModal(ds.d, ds.meal); else if (a === 'chef') cycleChef(ds.d, ds.meal); else if (a === 'plan') planModal(); else if (a === 'miss') missModal(); else if (a === 'shop') shopMode();
   else if (a === 'shtog') { const x = S.spesa.find(y => y.id === ds.id); if (x) save('spesa', x.id, { ...x, done: !x.done }) }
   else if (a === 'shend') { const L = S.spesa.filter(x => x.done); close(); L.forEach(x => { mergeDisp({ name: x.name, qty: x.qty, unit: x.unit, ux: x.qty != null }); del('spesa', x.id) }); logA('ha messo in dispensa la spesa: ' + listTxt(L.map(x => x.name))); toast(`${L.length} cose messe in dispensa`) }
-  else if (a === 'rate') rateDish(ds.k, +ds.v); else if (a === 'eatadd') eatAdd(ds.k); else if (a === 'rplus') ricSheet(); else if (a === 'rimp') importModal(); else if (a === 'rview') { S.rview = ds.v; if (S.rf) S.rf.fonte = ''; render() }
-  else if (a === 'popen') propModal(ds.pid); else if (a === 'lopen') propModal(ds.id, null, 'libro'); else if (a === 'pdel') { const old = PROPS.slice(); PROPS = PROPS.filter(x => x.pid !== ds.pid); propSave(); render(); toast('Proposta tolta', () => { PROPS = old; propSave(); render() }) }
+  else if (a === 'rate') rateDish(ds.k, +ds.v); else if (a === 'eatadd') eatAdd(ds.k); else if (a === 'rplus') ricSheet(); else if (a === 'rimp') importModal(); else if (a === 'rview') { S.rview = ds.v; S.lmax = 60; if (S.rf) S.rf.fonte = ''; render() }
+  else if (a === 'lmore') { S.lmax = (S.lmax || 60) + 60; render() } else if (a === 'popen') propModal(ds.pid); else if (a === 'lopen') propModal(ds.id, null, 'libro'); else if (a === 'pdel') { const old = PROPS.slice(); PROPS = PROPS.filter(x => x.pid !== ds.pid); propSave(); render(); toast('Proposta tolta', () => { PROPS = old; propSave(); render() }) }
   else if (a === 'pclear') { const old = PROPS.slice(); PROPS = []; propSave(); render(); toast('Proposte svuotate', () => { PROPS = old; propSave(); render() }) }
   else if (a === 'rfs') { const f = S.rf; const i = SORTS.findIndex(x => x[0] === f.sort); f.sort = SORTS[(i + 1) % SORTS.length][0]; render() }
   else if (a === 'rft') { S.rf[ds.v] = !S.rf[ds.v]; render() } else if (a === 'rftipo') { S.rf.tipo = S.rf.tipo === ds.v ? '' : ds.v; render() } else if (a === 'rffonte') { S.rf.fonte = S.rf.fonte === ds.v ? '' : ds.v; render() }
