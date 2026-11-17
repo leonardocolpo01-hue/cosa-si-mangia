@@ -550,6 +550,7 @@ function ricModal(id, n0) {
   <h3>Ingredienti</h3><ul class="ing">${st.map(({ i, s }) => `<li class="${s.st}"><span class="mk">${s.st === 'y' ? '✓' : s.st === 'p' ? '!' : '✗'}</span><span>${esc(i.n)}${s.st === 'p' ? ' <em>ne hai poco</em>' : ''}</span><span class="q">${fmtQ(i.q == null ? null : i.q * f, i.u)}</span></li>`).join('') || '<li>Nessun ingrediente scritto.</li>'}</ul>
   ${need.length ? `<p style="margin:14px 0 0"><button class="bp wide" id="miss">Metti in spesa ${need.length === 1 ? 'l\'ingrediente che manca' : `i ${need.length} che mancano`}</button></p>` : '<p class="okm">Hai tutto in casa.</p>'}
   ${r.passi ? `<h3>Preparazione</h3><ol class="steps">${String(r.passi).split(/\n+/).map(s => s.trim()).filter(Boolean).map(s => `<li>${esc(s.replace(/^\d+[.)]\s*/, ''))}</li>`).join('')}</ol>` : ''}
+  ${r.url && /^https:\/\//.test(r.url) ? `<p class="srclnk"><a href="${esc(r.url)}" target="_blank" rel="noopener">Apri la ricetta originale${r.fonte ? ' su ' + esc(r.fonte) : ''} ↗</a></p>` : ''}
   <h3>Mettila nel menu</h3><div class="row"><select id="md" aria-label="Giorno">${opts}</select><select id="mm" aria-label="Pasto">${MEALS.map(([k, l]) => `<option value="${k}"${k === 's' ? ' selected' : ''}>${l}</option>`).join('')}</select><button class="bg" id="madd">Aggiungi</button></div>
   <div class="acts"><button class="bd" id="del">Elimina</button><button class="bg" id="kp">Manda a Keep</button><button class="bg" id="ed">Modifica</button><button class="bp" id="cook">L'ho cucinata</button></div>`, m => {
     const q = s => m.querySelector(s);
@@ -570,7 +571,7 @@ function ricEdit(r, fresh) {
   <label>Ingredienti <small>uno per riga, es. "200 g pasta", "2 uova", "sale q.b."</small><textarea name="ingr" rows="7">${esc((r.ingr || []).map(lineOf).join('\n'))}</textarea></label>
   <label>Preparazione <small>un passaggio per riga</small><textarea name="passi" rows="6">${esc(r.passi || '')}</textarea></label>
   <label>Etichette <small>separate da virgola</small><input name="tags" value="${esc((r.tags || []).join(', '))}" placeholder="veloce, vegetariano, dolce" autocomplete="off"></label>${acts()}</form>`, m => {
-    m.querySelector('#f').onsubmit = e => { e.preventDefault(); const f = e.target; const id = save('ricette', isNew ? null : r.id, { name: E(f, 'nome').value.trim(), porz: +E(f, 'porz').value || 4, tempo: +E(f, 'tempo').value || '', ingr: E(f, 'ingr').value.split('\n').map(parseLine).filter(Boolean).map(({ ux, ...i }) => i), passi: E(f, 'passi').value.trim(), tags: E(f, 'tags').value.split(',').map(s => s.trim()).filter(Boolean) }); ricModal(id) }
+    m.querySelector('#f').onsubmit = e => { e.preventDefault(); const f = e.target; const id = save('ricette', isNew ? null : r.id, { name: E(f, 'nome').value.trim(), porz: +E(f, 'porz').value || 4, tempo: +E(f, 'tempo').value || '', ingr: E(f, 'ingr').value.split('\n').map(parseLine).filter(Boolean).map(({ ux, ...i }) => i), passi: E(f, 'passi').value.trim(), tags: E(f, 'tags').value.split(',').map(s => s.trim()).filter(Boolean), ...(r && r.url ? { url: r.url, fonte: r.fonte || '' } : {}) }); ricModal(id) }
   })
 }
 
@@ -602,7 +603,7 @@ async function gemini(parts, onModel, opts = {}) {
   for (let i = 0; i < list.length; i++) {
     const model = list[i]; onModel && onModel(model);
     let r; const url = `${GBASE}models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(gkey())}`;
-    const gc = opts.tools ? {} : { responseMimeType: 'application/json' }; const body = () => ({ contents: [{ role: 'user', parts }], generationConfig: gc, ...(opts.tools ? { tools: opts.tools } : {}) });
+    const gc = opts.tools || opts.raw ? {} : { responseMimeType: 'application/json' }; const body = () => ({ contents: [{ role: 'user', parts }], generationConfig: gc, ...(opts.tools ? { tools: opts.tools } : {}) });
     const v = parseFloat((model.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
     if (v >= 3 && !/lite/.test(model)) gc.thinkingConfig = { thinkingLevel: 'minimal' }; // risposte rapide, senza "ragionamento" lungo
     try {
@@ -614,37 +615,98 @@ async function gemini(parts, onModel, opts = {}) {
     if (!r.ok) throw await gErr(r);
     const j = await r.json(); const t = (j.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
     if (!t) { last = new Error('Gemini non ha risposto (' + (j.candidates?.[0]?.finishReason || j.promptFeedback?.blockReason || 'vuoto') + ')'); continue }
-    LS.set('gok', model);
+    LS.set('gok', model); if (opts.raw) return t;
     const a = t.indexOf('{'), b = t.lastIndexOf('}'); return JSON.parse(a >= 0 && b > a ? t.slice(a, b + 1) : t)
   }
   throw new Error(last && /503|429|high demand|troppe/i.test(last.message) ? 'Gemini in questo momento è sovraccarico su tutti i modelli: riprova tra qualche minuto' : (last && last.message) || 'Gemini non risponde')
 }
 
+const AI_SITES = { 'giallozafferano.it': 'GialloZafferano', 'cucchiaio.it': 'Cucchiaio d\'Argento' };
+const AI_CHIPS = ['Primo', 'Secondo', 'Piatto unico', 'Contorno', 'Dolce', 'Veloce', 'Vegetariano', 'Pesce', 'Leggero', 'Al forno', 'Economico', 'Per ospiti'];
+const AI_SPUNTI = ['un piatto della tradizione veneta', 'un primo di pesce', 'qualcosa al forno', 'una zuppa o vellutata', 'un piatto vegetariano', 'un piatto della cucina siciliana', 'un secondo di carne', 'un risotto', 'un piatto unico', 'un piatto leggero', 'una ricetta della cucina pugliese', 'un piatto con i legumi', 'una torta salata', 'un piatto della cucina emiliana', 'un secondo di pesce', 'un contorno sfizioso', 'una ricetta toscana', 'un piatto con le uova', 'una pasta al forno', 'un piatto della cucina romana', 'un dolce semplice', 'un piatto di stagione', 'una ricetta della cucina napoletana', 'un piatto con le patate'];
+const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]] } return a };
+function siteOf(u) { try { const h = new URL(u).hostname.replace(/^www\./, ''); const k = Object.keys(AI_SITES).find(d => h === d || h.endsWith('.' + d)); return k ? AI_SITES[k] : '' } catch (e) { return '' } }
+function siteSearch(name, fonte) { const d = /cucchiaio/i.test(fonte || '') ? 'cucchiaio.it' : 'giallozafferano.it'; return 'https://www.google.com/search?q=' + encodeURIComponent(name + ' site:' + d) }
+
 function aiModal() {
-  if (!gkey()) { settingsModal(); return }
-  const n = heads(today(), 's') || 4;
-  modal(`<h2>Idee per cucinare</h2><p class="sub">Tre ricette proposte da Gemini. Scegli se usare quello che avete in casa o se va bene anche fare la spesa.</p><form id="f">
-  <label>Hai voglia di qualcosa? <small>facoltativo</small><input name="v" placeholder="Es. qualcosa di veloce, senza carne, un dolce" autocomplete="off"></label>
-  <label>Con quali ingredienti?</label><div class="segc seg3" id="mode"><button type="button" data-m="solo" class="on">Solo quello che c'è</button><button type="button" data-m="misto">C'è + poco da comprare</button><button type="button" data-m="libero">Qualsiasi cosa</button></div><p class="hint" id="mh">Niente da comprare: solo dispensa e frigo, più sale, pepe e olio.</p><label>Persone<input name="n" type="number" min="1" inputmode="numeric" value="${n}"></label>
-  <button class="bp wide" id="go">Proponi 3 ricette</button></form><div id="out"></div>`, m => {
-    const out = m.querySelector('#out'); let busy = false; let mode = LS.get('aimode') || 'solo';
-    const MH = { solo: 'Niente da comprare: solo dispensa e frigo, più sale, pepe e olio.', misto: 'Soprattutto quello che avete, con pochi ingredienti da comprare.', libero: 'Ricette libere, anche con cose che non avete: quello che manca lo metti in spesa con un tocco.' };
-    const setMode = v => { mode = v; LS.set('aimode', v); m.querySelectorAll('#mode button').forEach(b => b.classList.toggle('on', b.dataset.m === v)); m.querySelector('#mh').textContent = MH[v] };
-    setMode(mode); m.querySelectorAll('#mode button').forEach(b => b.onclick = () => setMode(b.dataset.m));
-    m.querySelector('#f').onsubmit = async e => {
-      e.preventDefault(); if (busy) return; busy = true; const f = e.target; const v = E(f, 'v').value.trim(), np = +E(f, 'n').value || n; const go = m.querySelector('#go'); go.disabled = true;
-      const pantry = S.disp.filter(d => !(typeof d.qty === 'number' && d.qty <= 0)).map(d => `- ${d.name}${d.qty != null ? ` (${fmtQ(d.qty, d.unit)})` : ''}${d.scad ? `, scade il ${d.scad}` : ''}`).join('\n') || '(dispensa vuota)';
-      const prompt = `Sei un cuoco di casa italiano. Proponi 3 ricette diverse tra loro per ${np} persone. Oggi è il ${today()}.\n${mode === 'libero' ? 'La famiglia è disposta a fare la spesa: proponi ricette buone e varie senza limitarti a quello che c\'è in casa. Per informazione, in casa ci sono:\n' + pantry + '\nSe qualcosa di questi si adatta bene, puoi usarlo, ma non è obbligatorio.' : 'Ingredienti disponibili in casa:\n' + pantry + '\n\n' + (mode === 'solo' ? 'Usa SOLO ingredienti disponibili, più eventualmente sale, pepe, acqua e olio.' : 'Usa soprattutto gli ingredienti disponibili; puoi aggiungere pochi ingredienti da comprare.') + '\nDai la precedenza agli ingredienti che scadono prima.'}${v ? '\nRichiesta della famiglia: ' + v : ''}${tastesText() ? '\nAttenzione ai gusti: ' + tastesText() + '.' : ''}\nQuando usi un ingrediente della lista, scrivine il nome come appare nella lista.\nRispondi SOLO con JSON in questa forma: {"ricette":[{"nome":"...","porzioni":${np},"tempo":30,"ingredienti":[{"n":"nome in minuscolo","q":200,"u":"g"}],"passi":["..."]}]} dove "u" è uno tra g, kg, ml, l, pz, cucchiai, spicchi, fette, qb e "q" è un numero o null.`;
-      out.innerHTML = '<p class="load">Sto pensando a cosa potete cucinare…</p>';
+  if (!gkey()) { modal(`<h2>Trova ricette</h2><p class="sub">Per cercare ricette su GialloZafferano e Cucchiaio d'Argento, o farle inventare, serve Gemini, che è gratuito. Attivalo dalle impostazioni e torna qui.</p><div class="acts"><button class="bg" data-act="close">Chiudi</button><button class="bp" data-act="settings">Impostazioni</button></div>`); return }
+  const n0 = heads(today(), 's') || 4;
+  const st = { src: LS.get('aisrc') || 'siti', mode: LS.get('aimode') || 'libero', cnt: +LS.get('aicnt') || 6, chips: new Set(), shown: [], all: [], busy: false };
+  const seg = (id, opts, cur) => `<div class="segc${opts.length > 2 ? ' seg3' : ''}" id="${id}">${opts.map(([k, l]) => `<button type="button" data-k="${k}" class="${String(k) === String(cur) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  modal(`<h2>Trova ricette</h2><p class="sub">Ricette vere dai siti di cucina, oppure idee inventate da Gemini. Ogni volta che cerchi escono ricette nuove.</p><form id="f">
+  <label>Da dove?</label>${seg('src', [['siti', 'GialloZafferano e Cucchiaio d\'Argento'], ['gemini', 'Inventate da Gemini']], st.src)}
+  <label>Cosa cerchi? <small>facoltativo</small><input name="v" placeholder="Es. lasagne, qualcosa con la zucca, cena veloce" autocomplete="off"></label>
+  <div class="chips" id="ch">${AI_CHIPS.map(c => `<button type="button" class="chip" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+  <label>Con quali ingredienti?</label>${seg('mode', [['libero', 'Qualsiasi'], ['misto', 'Quello che c\'è + poco da comprare'], ['solo', 'Solo quello che c\'è']], st.mode)}
+  <p class="hint" id="mh"></p>
+  <div class="row"><label>Persone<input name="n" type="number" min="1" inputmode="numeric" value="${n0}"></label><label>Quante ricette?${seg('cnt', [[3, '3'], [6, '6'], [10, '10']], st.cnt)}</label></div>
+  <button class="bp wide" id="go">Cerca ricette</button></form><div id="out"></div><div id="more"></div>`, m => {
+    const q = s => m.querySelector(s); const out = q('#out'), more = q('#more');
+    const MH = { libero: 'Ricette di ogni tipo, senza guardare cosa c\'è in casa. Quello che manca lo metti in spesa con un tocco.', misto: 'Soprattutto con quello che avete, al massimo 2 o 3 cose da comprare.', solo: 'Niente da comprare: solo dispensa e frigo, più sale, pepe e olio.' };
+    const segWire = (id, key, ls, after) => m.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => { st[key] = id === 'cnt' ? +b.dataset.k : b.dataset.k; LS.set(ls, st[key]); m.querySelectorAll(`#${id} button`).forEach(x => x.classList.toggle('on', x === b)); after && after() });
+    const hint = () => { q('#mh').textContent = MH[st.mode] };
+    segWire('src', 'src', 'aisrc'); segWire('mode', 'mode', 'aimode', hint); segWire('cnt', 'cnt', 'aicnt'); hint();
+    m.querySelectorAll('#ch .chip').forEach(b => b.onclick = () => { const c = b.dataset.c; st.chips.has(c) ? st.chips.delete(c) : st.chips.add(c); b.classList.toggle('on', st.chips.has(c)) });
+
+    const pantryTxt = full => S.disp.filter(d => !zero(d)).map(d => full ? `- ${d.name}${d.qty != null && !isLv(d) ? ` (${fmtQ(d.qty, d.unit)})` : ''}${d.scad ? `, scade il ${d.scad}` : ''}` : d.name).join(full ? '\n' : ', ') || '(niente)';
+    const buildPrompt = (np, want, k) => {
+      const recent = [...new Set([...st.shown, ...(LS.get('aiseen') || [])])].slice(0, 80);
+      const spunti = shuffle(AI_SPUNTI).slice(0, 4).join('; ');
+      let p = `Oggi è il ${today()} (${MESI[new Date().getMonth()]}). Servono ${k} ricette diverse tra loro, per ${np} persone, per una famiglia italiana.\n`;
+      if (want) p += `Cosa cercano: ${want}.\n`; else p += `Non hanno chiesto niente di preciso: varia molto (tipi di piatto, regioni, cotture). Per esempio puoi spaziare tra: ${spunti}. Preferisci ingredienti di stagione.\n`;
+      if (st.mode === 'libero') p += 'Non preoccuparti di cosa c\'è in casa: la famiglia farà la spesa. Scegli liberamente.\n';
+      else if (st.mode === 'misto') p += `In casa hanno:\n${pantryTxt(true)}\nUsa soprattutto questi ingredienti; ogni ricetta può richiedere al massimo 2 o 3 ingredienti da comprare. Dai la precedenza a quelli che scadono prima.\n`;
+      else p += `In casa hanno:\n${pantryTxt(true)}\nOgni ricetta deve usare SOLO questi ingredienti, più eventualmente sale, pepe, acqua e olio. Dai la precedenza a quelli che scadono prima.\n`;
+      if (tastesText()) p += `Gusti da rispettare: ${tastesText()}.\n`;
+      if (recent.length) p += `NON proporre queste ricette, già viste: ${recent.join('; ')}.\n`;
+      return p
+    };
+    const FMT = '{"ricette":[{"nome":"...","fonte":"GialloZafferano o Cucchiaio d\'Argento o vuoto","url":"https://... o vuoto","porzioni":4,"tempo":30,"ingredienti":[{"n":"nome in minuscolo","q":200,"u":"g"}],"perche":"una frase breve"}]} dove "u" è uno tra g, kg, ml, l, pz, cucchiai, spicchi, fette, qb e "q" è un numero o null';
+    const ask = async (np, want, k) => {
+      const base = buildPrompt(np, want, k);
+      if (st.src === 'gemini') { const r = await gemini([{ text: 'Sei un cuoco di casa italiano. ' + base + '\nPer ogni ricetta scrivi anche i passaggi in "passi" (lista di frasi). Rispondi SOLO con JSON in questa forma: ' + FMT.replace('"perche"', '"passi":["..."],"perche"') }]); return (r && r.ricette) || (Array.isArray(r) ? r : []) }
+      const sp = `Cerca con Google ricette VERE pubblicate su giallozafferano.it (anche ricette.giallozafferano.it) o su cucchiaio.it. ${base}\nPer ogni ricetta trovata riporta il nome esatto della ricetta sul sito, il sito, l'indirizzo esatto della pagina (solo se lo hai visto nei risultati, altrimenti lascialo vuoto: non inventarlo), le porzioni e gli ingredienti come li indica il sito, il tempo totale in minuti.\nRispondi SOLO con JSON in questa forma: ${FMT}`;
+      const t = await gemini([{ text: sp }], null, { tools: [{ google_search: {} }], raw: true });
+      const a = t.indexOf('{'), b = t.lastIndexOf('}');
+      try { const r = JSON.parse(t.slice(a, b + 1)); return r.ricette || [] }
+      catch (e) { const r = await gemini([{ text: 'Trasforma questo elenco di ricette in JSON, senza inventare niente. Rispondi SOLO con JSON in questa forma: ' + FMT + '\n\n' + t.slice(0, 15000) }]); return (r && r.ricette) || [] }
+    };
+    const toR = (x, np) => { const r = toRic(x); r.porz = +x.porzioni || np; r.why = String(x.perche || ''); r.tags = ['idea'];
+      if (st.src === 'siti') { const u = String(x.url || '').trim(); const ok = /^https:\/\//.test(u) && siteOf(u); r.fonte = ok ? siteOf(u) : (/cucchiaio/i.test(x.fonte || '') ? 'Cucchiaio d\'Argento' : 'GialloZafferano'); r.url = ok ? u : ''; r.link = ok ? u : siteSearch(r.name, r.fonte) }
+      else r.fonte = ''; return r };
+    const card = (r, j) => { const mi = match(r).miss; const tot = match(r).tot;
+      return `<div class="idea"><div class="ih"><span class="src ${r.fonte ? (/cucchiaio/i.test(r.fonte) ? 'cu' : 'gz') : 'gm'}">${r.fonte ? esc(r.fonte) : 'Idea di Gemini'}</span>${r.tempo ? `<span class="tm">${esc(r.tempo)} min</span>` : ''}</div><h4>${esc(r.name)}</h4>${r.why ? `<p class="why">${esc(r.why)}</p>` : ''}
+      <p>${r.ingr.map(i => esc(i.n)).join(', ')}</p><p class="${mi.length ? 'miss' : 'okm2'}">${mi.length ? `Da comprare (${mi.length} su ${tot}): ${mi.map(i => esc(i.n)).join(', ')}` : 'Hai tutto in casa'}</p>
+      <div class="row">${r.link ? `<a class="bg" href="${esc(r.link)}" target="_blank" rel="noopener">${r.url ? 'Apri ↗' : 'Cerca sul sito ↗'}</a>` : ''}${mi.length ? `<button class="bg" data-buy="${j}">In spesa</button>` : ''}<button class="bp" data-save="${j}">Salva</button></div></div>` };
+    const draw = np => {
+      out.innerHTML = st.all.length ? `<h3>${st.all.length === 1 ? "1 ricetta" : st.all.length + " ricette"}</h3>` + st.all.map(card).join('') : '';
+      out.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => { const r = st.all[+b.dataset.buy]; const mi = match(r).miss; const k = mi.filter(i => !S.spesa.some(x => !x.done && same(x.name, i.n))).length; addToSpesa(mi.map(i => ({ name: i.n, qty: i.q == null ? null : round(i.q * np / (r.porz || np)), unit: i.q == null ? '' : i.u, from: r.name }))); b.disabled = true; b.textContent = 'In spesa ✓'; toast(k ? `${k} ${k === 1 ? 'ingrediente messo' : 'ingredienti messi'} in lista della spesa` : 'Erano già tutti in lista') });
+      out.querySelectorAll('[data-save]').forEach(b => b.onclick = async () => {
+        const r = st.all[+b.dataset.save]; const { why, link, ...data } = r; b.disabled = true;
+        if (r.url) { b.textContent = 'Prendo il procedimento…'; try { const x = await gemini([{ text: `Apri questa pagina: ${r.url} ed estrai la ricetta che contiene, in italiano. Rispondi SOLO con JSON: ` + RIC_FMT }], null, { tools: [{ url_context: {} }] }); const y = toRic((x && x.ricetta) || x || {}); if (y.ingr.length) { data.ingr = y.ingr; data.porz = y.porz || data.porz } if (y.passi) data.passi = y.passi; if (y.tempo) data.tempo = y.tempo } catch (e) { console.warn(e) } }
+        if (!data.passi && r.link) data.passi = 'Procedimento sul sito: ' + r.link;
+        const id = save('ricette', null, data); toast('Ricetta salvata'); ricModal(id, np)
+      });
+      more.innerHTML = st.all.length ? `<button class="bg wide" id="again">Altre ${st.cnt} ricette</button>` : '';
+      if (q('#again')) q('#again').onclick = () => run(true)
+    };
+    const run = async append => {
+      if (st.busy) return; st.busy = true; const f = q('#f'); const np = +E(f, 'n').value || n0;
+      const want = [E(f, 'v').value.trim(), ...st.chips].filter(Boolean).join(', ');
+      if (!append) { st.all = []; out.innerHTML = '' }
+      more.innerHTML = `<p class="load">${st.src === 'siti' ? 'Cerco su GialloZafferano e Cucchiaio d\'Argento…' : 'Sto pensando a cosa potete cucinare…'}</p>`; q('#go').disabled = true;
       try {
-        const res = await gemini([{ text: prompt }]); const arr = (Array.isArray(res) ? res : res && res.ricette) || [];
-        const R = arr.filter(x => x && x.nome).map(x => ({ name: String(x.nome), porz: +x.porzioni || np, tempo: +x.tempo || '', ingr: (x.ingredienti || []).filter(i => i && i.n).map(i => ({ n: String(i.n), q: i.q == null || i.q === '' ? null : +i.q, u: UNITS.includes(i.u) ? i.u : (UMAP[i.u] || 'pz') })), passi: (Array.isArray(x.passi) ? x.passi : [x.passi]).filter(Boolean).join('\n'), tags: ['idea'] }));
-        out.innerHTML = R.length ? R.map((r, j) => { const mi = match(r).miss; return `<div class="idea"><h4>${esc(r.name)}</h4><p>${r.tempo ? r.tempo + ' min · ' : ''}${r.ingr.map(i => esc(i.n)).join(', ')}</p><p>${mi.length ? 'Da comprare: ' + mi.map(i => esc(i.n)).join(', ') : 'Hai tutto in casa'}</p><div class="row">${mi.length ? `<button class="bg" data-buy="${j}">Metti in spesa</button>` : ''}<button class="bp" data-save="${j}">Salva e apri</button></div></div>` }).join('') : '<p class="load">Nessuna proposta, riprova.</p>';
-        out.querySelectorAll('[data-save]').forEach(b => b.onclick = () => { const id = save('ricette', null, R[+b.dataset.save]); ricModal(id, np) })
-        out.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => { const r = R[+b.dataset.buy]; const mi = match(r).miss; const k = mi.filter(i => !S.spesa.some(x => !x.done && same(x.name, i.n))).length; addToSpesa(mi.map(i => ({ name: i.n, qty: i.q ?? null, unit: i.q == null ? '' : i.u, from: r.name }))); b.disabled = true; b.textContent = 'In spesa ✓'; toast(k ? `${k} ${k === 1 ? 'ingrediente messo' : 'ingredienti messi'} in lista della spesa` : 'Erano già tutti in lista') })
-      } catch (err) { console.warn(err); out.innerHTML = `<p class="load">Non è andata: ${esc(err.message || err)}.</p>` }
-      busy = false; go.disabled = false
-    }
+        const arr = await ask(np, want, st.cnt);
+        let R = arr.filter(x => x && x.nome).map(x => toR(x, np)).filter(r => !st.all.some(o => norm(o.name) === norm(r.name)));
+        if (st.mode !== 'libero') R.sort((a, b) => match(a).miss.length - match(b).miss.length);
+        st.all.push(...R); st.shown.push(...R.map(r => r.name)); LS.set('aiseen', [...R.map(r => r.name), ...(LS.get('aiseen') || [])].slice(0, 60));
+        draw(np); if (!R.length) more.innerHTML = '<p class="load">Non ho trovato niente di nuovo: prova a cambiare richiesta.</p>' + more.innerHTML;
+        else if (!append) out.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } catch (err) { console.warn(err); more.innerHTML = `<p class="load">Non è andata: ${esc(err.message || err)}.${st.src === 'siti' ? ' Puoi riprovare, oppure scegliere "Inventate da Gemini".' : ''}</p>` + (st.all.length ? `<button class="bg wide" id="again">Riprova</button>` : ''); if (q('#again')) q('#again').onclick = () => run(true) }
+      st.busy = false; q('#go').disabled = false
+    };
+    q('#f').onsubmit = e => { e.preventDefault(); run(false) };
   })
 }
 
@@ -1457,7 +1519,7 @@ function importModal() {
 }
 function ricSheet() {
   const it = (act, t, sub, ic) => `<button class="act" data-act="${act}"><span class="ai">${ic}</span><span><b>${t}</b><small>${sub}</small></span></button>`;
-  modal(`<h2>Aggiungi una ricetta</h2><div class="acts-l">${it('rnew', 'Scrivila', 'Nome, ingredienti e passaggi', IC.pen)}${it('rimp', 'Importa da foto, testo o link', 'La legge Gemini, poi la correggi', IC.cam)}${it('ai', 'Idee da Gemini', 'Con quello che c\'è, o anche da comprare', IC.star)}</div>`)
+  modal(`<h2>Aggiungi una ricetta</h2><div class="acts-l">${it('rnew', 'Scrivila', 'Nome, ingredienti e passaggi', IC.pen)}${it('rimp', 'Importa da foto, testo o link', 'La legge Gemini, poi la correggi', IC.cam)}${it('ai', 'Trova ricette', 'GialloZafferano, Cucchiaio d\'Argento o inventate', IC.star)}</div>`)
 }
 
 /* ---------- riepilogo del giorno ---------- */
