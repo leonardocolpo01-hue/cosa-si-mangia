@@ -469,3 +469,4 @@ details.more .segc{margin:4px 0}
 .askf{margin-top:6px}
 #ask .chips{margin:4px 0 6px}
 .rc.prc>button.x{width:auto;padding:4px 10px;box-shadow:none;background:none;display:block;font-size:22px;color:var(--mut)}.rc.prc>button:first-child{padding-right:40px}
+.warnbox{background:var(--warnsoft);color:var(--warn);padding:10px 12px;border-radius:12px;font-weight:600}

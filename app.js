@@ -583,7 +583,7 @@ function ricEdit(r, fresh) {
 
 /* ---------- Gemini (facoltativo) ---------- */
 const GBASE = 'https://generativelanguage.googleapis.com/v1beta/';
-async function gErr(r) { let m = ''; try { m = (await r.json()).error.message || '' } catch (e) { } const k = /api key|api_key|permission|denied/i.test(m); return new Error(r.status === 429 ? 'troppe richieste a Gemini, riprova tra un minuto' : r.status === 503 ? 'Gemini 503: modello sovraccarico' : k ? 'chiave Gemini non valida o non abilitata' : `Gemini ${r.status}${m ? ': ' + m : ''}`) }
+async function gErr(r) { let m = ''; try { m = (await r.json()).error.message || '' } catch (e) { } const k = /api key|api_key|permission|denied/i.test(m); if (r.status === 429 || (r.status === 400 && /grounding|search|billing|tool/i.test(m))) { const e = new Error(/quota|limit|billing|exhaust|tier/i.test(m) ? 'limite della chiave gratuita raggiunto (' + (m.split('\n')[0].slice(0, 120) || '429') + ')' : 'troppe richieste a Gemini, riprova tra un minuto'); e.quota = true; return e } return new Error(r.status === 429 ? 'troppe richieste a Gemini, riprova tra un minuto' : r.status === 503 ? 'Gemini 503: modello sovraccarico' : k ? 'chiave Gemini non valida o non abilitata' : `Gemini ${r.status}${m ? ': ' + m : ''}`) }
 const isCustom = () => { const m = LS.get('gmodel', ''); return m && m !== 'gemini-2.5-flash' ? m : '' };
 async function modelList(fresh) {
   if (isCustom()) return [isCustom()];
@@ -595,7 +595,7 @@ async function modelList(fresh) {
   const best = cand.find(x => !x.lite), lite = cand.find(x => x.lite);
   const list = [...new Set([lite && lite.n, best && best.n, ...cand.map(x => x.n), ok.includes('gemini-flash-latest') ? 'gemini-flash-latest' : null].filter(Boolean))].slice(0, 5);
   if (!list.length) throw new Error('nessun modello Gemini disponibile per questa chiave');
-  LS.set('gauto2', { list, t: Date.now() }); return list
+  LS.set('gauto2', { list, t: Date.now(), old: cand.filter(x => x.v < 3).map(x => x.n).slice(0, 3) }); return list
 }
 async function gfetch(url, body, ms) {
   const ac = new AbortController(); const t = setTimeout(() => ac.abort(), ms);
@@ -606,6 +606,8 @@ async function gfetch(url, body, ms) {
 async function gemini(parts, onModel, opts = {}) {
   let list = await modelList(false), last = null, refreshed = false;
   const pref = LS.get('gok', ''); if (pref && list.includes(pref)) list = [pref, ...list.filter(m => m !== pref)];
+  if (opts.tools && opts.tools.some(t => t.google_search) && !isCustom()) { const old = (LS.get('gauto2', {}) || {}).old || []; list = [...new Set([...old, ...list])] }
+  let quota = null;
   for (let i = 0; i < list.length; i++) {
     const model = list[i]; onModel && onModel(model);
     let r; const url = `${GBASE}models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(gkey())}`;
@@ -617,13 +619,14 @@ async function gemini(parts, onModel, opts = {}) {
       if (r.status === 400 && gc.thinkingConfig) { delete gc.thinkingConfig; r = await gfetch(url, body(), opts.tools ? 45000 : 30000) }
     } catch (e) { last = e; continue }
     if (r.status === 404 && !refreshed && !isCustom()) { refreshed = true; LS.del('gauto2'); list = await modelList(true); i = -1; continue }
-    if ([429, 500, 503, 504].includes(r.status)) { last = await gErr(r); continue }
+    if ([429, 500, 503, 504].includes(r.status) || (r.status === 400 && opts.tools)) { last = await gErr(r); if (last.quota) quota = last; continue }
     if (!r.ok) throw await gErr(r);
     const j = await r.json(); const t = (j.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
     if (!t) { last = new Error('Gemini non ha risposto (' + (j.candidates?.[0]?.finishReason || j.promptFeedback?.blockReason || 'vuoto') + ')'); continue }
-    LS.set('gok', model); if (opts.raw) return t;
+    if (!opts.tools) LS.set('gok', model); if (opts.raw) return t;
     const a = t.indexOf('{'), b = t.lastIndexOf('}'); return JSON.parse(a >= 0 && b > a ? t.slice(a, b + 1) : t)
   }
+  if (quota) throw quota;
   throw new Error(last && /503|429|high demand|troppe/i.test(last.message) ? 'Gemini in questo momento è sovraccarico su tutti i modelli: riprova tra qualche minuto' : (last && last.message) || 'Gemini non risponde')
 }
 
@@ -673,11 +676,17 @@ function aiModal() {
     const ask = async (np, want, k) => {
       const base = buildPrompt(np, want, k);
       if (st.src === 'gemini') { const r = await gemini([{ text: 'Sei un cuoco di casa italiano. ' + base + '\nPer ogni ricetta scrivi anche i passaggi in "passi" (lista di frasi). Rispondi SOLO con JSON in questa forma: ' + FMT.replace('"perche"', '"passi":["..."],"perche"') }]); return (r && r.ricette) || (Array.isArray(r) ? r : []) }
-      const sp = `Cerca con Google ricette VERE pubblicate su giallozafferano.it (anche ricette.giallozafferano.it) o su cucchiaio.it. ${base}\nPer ogni ricetta trovata riporta il nome esatto della ricetta sul sito, il sito, l'indirizzo esatto della pagina (solo se lo hai visto nei risultati, altrimenti lascialo vuoto: non inventarlo), le porzioni e gli ingredienti come li indica il sito, il tempo totale in minuti.\nRispondi SOLO con JSON in questa forma: ${FMT}`;
-      const t = await gemini([{ text: sp }], null, { tools: [{ google_search: {} }], raw: true });
-      const a = t.indexOf('{'), b = t.lastIndexOf('}');
-      try { const r = JSON.parse(t.slice(a, b + 1)); return r.ricette || [] }
-      catch (e) { const r = await gemini([{ text: 'Trasforma questo elenco di ricette in JSON, senza inventare niente. Rispondi SOLO con JSON in questa forma: ' + FMT + '\n\n' + t.slice(0, 15000) }]); return (r && r.ricette) || [] }
+      st.fb = false; const known = `Proponi ricette che sono davvero pubblicate su GialloZafferano o sul Cucchiaio d'Argento e che conosci bene: usa il nome della ricetta come compare sul sito e indica il sito in "fonte". ${base}\nRiporta porzioni e ingredienti come li indica il sito, e il tempo totale in minuti. Lascia "url" vuoto.\nRispondi SOLO con JSON in questa forma: ${FMT}`;
+      if (Date.now() - (LS.get('nogrd', 0) || 0) > 864e5) {
+        const sp = `Cerca con Google ricette VERE pubblicate su giallozafferano.it (anche ricette.giallozafferano.it) o su cucchiaio.it. ${base}\nPer ogni ricetta trovata riporta il nome esatto della ricetta sul sito, il sito, l'indirizzo esatto della pagina (solo se lo hai visto nei risultati, altrimenti lascialo vuoto: non inventarlo), le porzioni e gli ingredienti come li indica il sito, il tempo totale in minuti.\nRispondi SOLO con JSON in questa forma: ${FMT}`;
+        try {
+          const t = await gemini([{ text: sp }], null, { tools: [{ google_search: {} }], raw: true });
+          const a = t.indexOf('{'), b = t.lastIndexOf('}');
+          try { const r = JSON.parse(t.slice(a, b + 1)); if ((r.ricette || []).length) return r.ricette }
+          catch (e) { const r = await gemini([{ text: 'Trasforma questo elenco di ricette in JSON, senza inventare niente. Rispondi SOLO con JSON in questa forma: ' + FMT + '\n\n' + t.slice(0, 15000) }]); if (r && (r.ricette || []).length) return r.ricette }
+        } catch (e) { console.warn('ricerca google', e); if (e.quota) LS.set('nogrd', Date.now()) }
+      }
+      st.fb = true; const r = await gemini([{ text: known }]); return ((r && r.ricette) || []).map(x => ({ ...x, url: '' }))
     };
     const toR = (x, np) => { const r = toRic(x); r.porz = +x.porzioni || np; r.why = String(x.perche || ''); r.tags = ['idea']; r.tipo = TIPI.some(([k]) => k === x.tipo) ? x.tipo : ''; if (typeof x.veg === 'boolean') r.veg = x.veg; r.pid = rid(); r.ts = Date.now();
       if (st.src === 'siti') { const u = String(x.url || '').trim(); const ok = /^https:\/\//.test(u) && siteOf(u); r.fonte = ok ? siteOf(u) : (/cucchiaio/i.test(x.fonte || '') ? 'Cucchiaio d\'Argento' : 'GialloZafferano'); r.url = ok ? u : ''; r.link = ok ? u : siteSearch(r.name, r.fonte) }
@@ -688,7 +697,7 @@ function aiModal() {
       <div class="row"><button class="bg" data-open="${j}">Vedi la ricetta</button><button class="${propSaved(r) ? 'bg' : 'bp'}" data-save="${j}">${propSaved(r) ? 'Salvata ✓' : 'Salva'}</button></div></div>` };
     const draw = np => {
       AI_RES.np = np;
-      out.innerHTML = st.all.length ? `<h3>${st.all.length === 1 ? "1 ricetta" : st.all.length + " ricette"}</h3><p class="hint">Tocca una ricetta per vederla, chiedere varianti e decidere se salvarla. Le ritrovi tutte in Ricette → Proposte.</p>` + st.all.map(card).join('') : '';
+      out.innerHTML = st.all.length ? `<h3>${st.all.length === 1 ? "1 ricetta" : st.all.length + " ricette"}</h3>${st.fb && st.src === 'siti' ? '<p class="hint warnbox">La ricerca su Google non è inclusa nella chiave gratuita di Gemini, quindi ti propongo ricette famose di GialloZafferano e Cucchiaio d\'Argento che Gemini conosce. Con "Cerca sul sito" apri la ricetta originale.</p>' : ''}<p class="hint">Tocca una ricetta per vederla, chiedere varianti e decidere se salvarla. Le ritrovi tutte in Ricette → Proposte.</p>` + st.all.map(card).join('') : '';
       out.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { const r = st.all[+b.dataset.open]; AI_RES.focus = r.pid; AI_RES.v = E(q('#f'), 'v').value; AI_RES.chips = [...st.chips]; propModal(r.pid, () => aiModal()) });
       out.querySelectorAll('[data-save]').forEach(b => b.onclick = () => { const r = st.all[+b.dataset.save]; if (propSaved(r)) { AI_RES.focus = r.pid; ricModal(r.rid); return } saveProp(r, b) });
       more.innerHTML = st.all.length ? `<button class="bg wide" id="again">Altre ${st.cnt} ricette</button>` : '';
@@ -1550,13 +1559,15 @@ const propSaved = p => p.rid && S.ric.some(r => r.id === p.rid);
 const linkOf = p => p.url || (p.fonte ? siteSearch(p.name, p.fonte) : '');
 
 async function fetchProc(p) {
-  const x = await gemini([{ text: `Apri questa pagina: ${p.url} ed estrai la ricetta che contiene, in italiano. Rispondi SOLO con JSON: ` + RIC_FMT }], null, { tools: [{ url_context: {} }] });
-  const y = toRic((x && x.ricetta) || x || {}); if (y.ingr.length) { p.ingr = y.ingr; p.porz = y.porz || p.porz } if (y.passi) p.passi = y.passi; if (y.tempo) p.tempo = y.tempo; propUpsert(p); return !!y.passi
+  let y = null;
+  if (p.url) { try { const x = await gemini([{ text: `Apri questa pagina: ${p.url} ed estrai la ricetta che contiene, in italiano. Rispondi SOLO con JSON: ` + RIC_FMT }], null, { tools: [{ url_context: {} }] }); y = toRic((x && x.ricetta) || x || {}); if (!y.passi) y = null } catch (e) { console.warn('pagina', e) } }
+  if (!y) { const x = await gemini([{ text: `Scrivi il procedimento della ricetta "${p.name}"${p.fonte ? ' come la propone ' + p.fonte : ''}, in italiano, passo per passo, semplice e preciso. Ingredienti: ${(p.ingr || []).map(i => i.n + (i.q != null ? ' ' + i.q + ' ' + i.u : '')).join(', ')}. Mantieni questi ingredienti. Rispondi SOLO con JSON: ` + RIC_FMT }]); y = toRic((x && x.ricetta) || x || {}); if (y.passi) p.procAi = true; y.ingr = [] }
+  if (y.ingr.length) { p.ingr = y.ingr; p.porz = y.porz || p.porz } if (y.passi) p.passi = y.passi; if (y.tempo && !p.tempo) p.tempo = y.tempo; propUpsert(p); return !!y.passi
 }
 async function saveProp(p, btn) {
   if (propSaved(p)) { ricModal(p.rid); return }
-  if (btn) { btn.disabled = true; btn.textContent = p.url && !p.passi ? 'Prendo il procedimento…' : 'Salvo…' }
-  if (p.url && !p.passi) { try { await fetchProc(p) } catch (e) { console.warn(e) } }
+  if (btn) { btn.disabled = true; btn.textContent = !p.passi ? 'Prendo il procedimento…' : 'Salvo…' }
+  if (!p.passi) { try { await fetchProc(p) } catch (e) { console.warn(e) } }
   const data = { name: p.name, porz: +p.porz || 4, tempo: p.tempo || '', ingr: p.ingr || [], passi: p.passi || (linkOf(p) ? 'Procedimento sul sito: ' + linkOf(p) : ''), tags: ['proposta'], tipo: tipoOf(p), veg: isVeg(p), ...(p.url ? { url: p.url, fonte: p.fonte || '' } : {}) };
   p.rid = save('ricette', null, data); propUpsert(p); logA('ha salvato la ricetta ' + p.name);
   if (btn) { btn.disabled = false; btn.textContent = 'Salvata ✓'; btn.classList.remove('bp'); btn.classList.add('bg') }
@@ -1570,13 +1581,13 @@ function propModal(pid, back) {
   <p class="sub"><span class="src ${p.fonte ? (/cucchiaio/i.test(p.fonte) ? 'cu' : 'gz') : 'gm'}">${p.fonte ? esc(p.fonte) : 'Idea di Gemini'}</span> ${[p.tempo ? p.tempo + ' min' : '', 'per ' + n, COURSE_L[tipoOf(p)] || '', isVeg(p) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</p>
   ${p.why ? `<p class="why">${esc(p.why)}</p>` : ''}
   <h3>Ingredienti</h3><ul class="ing">${st.map(({ i, s }) => `<li class="${s.st}"><span class="mk">${s.st === 'y' ? '✓' : s.st === 'p' ? '!' : '✗'}</span><span>${esc(i.n)}</span><span class="q">${fmtQ(i.q, i.u)}</span></li>`).join('') || '<li>Ingredienti non indicati.</li>'}</ul>
-  ${p.passi ? `<h3>Preparazione</h3><ol class="steps">${String(p.passi).split(/\n+/).map(s => s.trim()).filter(Boolean).map(s => `<li>${esc(s.replace(/^\d+[.)]\s*/, ''))}</li>`).join('')}</ol>` : p.url ? `<p style="margin-top:14px"><button class="bg wide" id="proc">Leggi il procedimento dal sito</button></p>` : ''}
+  ${p.passi ? `<h3>Preparazione</h3><ol class="steps">${String(p.passi).split(/\n+/).map(s => s.trim()).filter(Boolean).map(s => `<li>${esc(s.replace(/^\d+[.)]\s*/, ''))}</li>`).join('')}</ol>` : `<p style="margin-top:14px"><button class="bg wide" id="proc">${p.url ? 'Leggi il procedimento dal sito' : 'Mostra il procedimento'}</button></p>`}${p.passi && p.procAi ? '<p class="hint">Procedimento scritto da Gemini: può essere un po\' diverso da quello del sito.</p>' : ''}
   ${lk ? `<p class="srclnk"><a href="${esc(lk)}" target="_blank" rel="noopener">${p.url ? 'Apri la ricetta originale' : 'Cerca la ricetta'}${p.fonte ? ' su ' + esc(p.fonte) : ''} ↗</a></p>` : ''}
   <div id="ask"></div>
   <div class="acts">${need.length ? `<button class="bg" id="pbuy">Metti in spesa (${need.length})</button>` : ''}<button class="${propSaved(p) ? 'bg' : 'bp'}" id="psave">${propSaved(p) ? 'Salvata ✓ · Apri' : 'Salva tra le ricette'}</button></div>`, m => {
     const q = s => m.querySelector(s);
     if (q('#pback')) q('#pback').onclick = back;
-    if (q('#proc')) q('#proc').onclick = async e => { e.target.disabled = true; e.target.textContent = 'Leggo la pagina…'; try { const ok = await fetchProc(p); if (ok) propModal(pid, back); else { e.target.textContent = 'Non ci sono riuscito: apri il sito'; } } catch (x) { e.target.textContent = 'Non ci sono riuscito: apri il sito' } };
+    if (q('#proc')) q('#proc').onclick = async e => { e.target.disabled = true; e.target.textContent = p.url ? 'Leggo la pagina…' : 'Lo chiedo a Gemini…'; try { const ok = await fetchProc(p); if (ok) propModal(pid, back); else { e.target.disabled = false; e.target.textContent = 'Non ci sono riuscito: riprova'; } } catch (x) { e.target.disabled = false; e.target.textContent = 'Non è andata (' + (x.message || x) + '): riprova' } };
     if (q('#pbuy')) q('#pbuy').onclick = e => { addToSpesa(need.map(x => ({ name: x.i.n, qty: x.s.need.q == null ? null : round(x.s.need.q), unit: x.s.need.u, from: p.name }))); e.target.disabled = true; e.target.textContent = 'In spesa ✓'; toast(`${need.length} ${need.length === 1 ? 'ingrediente messo' : 'ingredienti messi'} in lista della spesa`) };
     q('#psave').onclick = e => { if (propSaved(p)) ricModal(p.rid); else saveProp(p, e.target).then(() => { const b = q('#psave'); if (b) b.textContent = 'Salvata ✓ · Apri' }) };
     askBox(q('#ask'), 'p:' + pid, () => p, { label: 'Usa questa versione', apply: x => { const y = toRic(x); Object.assign(p, { name: y.name || p.name, ingr: y.ingr.length ? y.ingr : p.ingr, passi: y.passi || p.passi, porz: y.porz || p.porz, tempo: y.tempo || p.tempo }); delete p.veg; propUpsert(p); propModal(pid, back); toast('Ricetta aggiornata con la variazione') } })
