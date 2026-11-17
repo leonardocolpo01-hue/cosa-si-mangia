@@ -275,6 +275,16 @@ function saveMany(c, list) {
   if (F) { if (F.fs.writeBatch) { for (let i = 0; i < items.length; i += 400) { const b = F.fs.writeBatch(F.db); items.slice(i, i + 400).forEach(([id, v]) => b.set(dref(c, id), v)); b.commit().catch(werr) } } else items.forEach(([id, v]) => F.fs.setDoc(dref(c, id), v).catch(werr)) }
   return items.map(x => x[0])
 }
+function delMany(c, ids) {
+  const set = new Set(ids); S[KEY[c]] = S[KEY[c]].filter(x => !set.has(x.id)); render();
+  if (F) { if (F.fs.writeBatch) { for (let i = 0; i < ids.length; i += 400) { const b = F.fs.writeBatch(F.db); ids.slice(i, i + 400).forEach(id => b.delete(dref(c, id))); b.commit().catch(werr) } } else ids.forEach(id => F.fs.deleteDoc(dref(c, id)).catch(werr)) }
+}
+function libroClear(fonte) {
+  const L = S.libro.filter(r => !fonte || r.fonte === fonte); if (!L.length) return;
+  modal(`<h2>${fonte ? 'Togliere queste ricette?' : 'Svuotare il Libro mastro?'}</h2><p class="sub">${fonte ? `Tolgo dal Libro mastro le <b>${L.length}</b> ricette di <b>${esc(fonte)}</b>.` : `Tolgo tutte le <b>${L.length}</b> ricette del Libro mastro.`} Le ricette che hai già salvato tra le tue Ricette restano. Subito dopo puoi ancora annullare.</p><div class="acts"><button class="bg" data-act="close">Annulla</button><button class="bd" id="lcgo">${fonte ? 'Togli' : 'Svuota'}</button></div>`, m => {
+    m.querySelector('#lcgo').onclick = () => { const old = L.map(r => ({ ...r })); delMany('libro', L.map(r => r.id)); close(); logA(fonte ? `ha tolto dal Libro mastro le ricette di ${fonte}` : 'ha svuotato il Libro mastro'); toast(`${L.length} ricette tolte`, () => saveMany('libro', old)) };
+  })
+}
 function del(c, id) { S[KEY[c]] = S[KEY[c]].filter(x => x.id !== id); render(); if (F) F.fs.deleteDoc(dref(c, id)).catch(werr) }
 function setPres(date, mid, patch) { const k = date + '_' + mid; S.pres[k] = { ...(S.pres[k] || {}), ...patch, date, mid }; render(); if (F) F.fs.setDoc(dref('presenze', k), { ...patch, date, mid }, { merge: true }).catch(werr) }
 function setMenu(k, mk, val) {
@@ -1711,6 +1721,7 @@ function renderLibro() {
   $('#rlist').innerHTML = (S.libro.length ? '' : '<li class="empty"><b>Il Libro mastro è vuoto.</b><br>Qui finiscono le ricette importate dai PDF o dai file: le sfogli, Gemini te le può proporre, e tra le tue Ricette metti solo quelle che ti piacciono. Tocca + e poi "Tante ricette insieme".</li>')
     + L.map(({ r, m }) => `<li class="rc prc"><button data-act="lopen" data-id="${esc(r.id)}"><span class="ih">${r.fonte ? `<span class="src lb">${esc(r.fonte)}</span>` : ''}${r.rid && S.ric.some(x => x.id === r.rid) ? '<span class="svd">✓ tra le ricette</span>' : ''}</span><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? r.tempo + ' min' : '', COURSE_L[tipoOf(r)] || '', isVeg(r) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</span><span class="mt">${m.miss.length ? `Mancano ${m.miss.length}: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto in casa'}</span></button></li>`).join('')
     + (S.libro.length && !L.length ? '<li class="empty">Nessuna ricetta con questi filtri.</li>' : '') + (L0.length > L.length ? `<li class="pcl"><button class="bg wide" data-act="lmore">Mostra altre (${L0.length - L.length})</button></li>` : '')
+    + (S.libro.length ? `<li class="pcl">${(S.rf || {}).fonte ? `<button class="lnk" data-act="lclear" data-f="${esc(S.rf.fonte)}">Togli tutte le ricette di ${esc(S.rf.fonte)}</button><br>` : ''}<button class="lnk" data-act="lclear">Svuota il Libro mastro</button></li>` : '')
 }
 async function classifyRics() {
   const L = S.ric.filter(r => !r.tipo); if (!L.length || !gkey()) return; toast('Classifico ' + L.length + ' ricette…');
@@ -1779,7 +1790,7 @@ document.addEventListener('click', e => {
   else if (a === 'shtog') { const x = S.spesa.find(y => y.id === ds.id); if (x) save('spesa', x.id, { ...x, done: !x.done }) }
   else if (a === 'shend') { const L = S.spesa.filter(x => x.done); close(); L.forEach(x => { mergeDisp({ name: x.name, qty: x.qty, unit: x.unit, ux: x.qty != null }); del('spesa', x.id) }); logA('ha messo in dispensa la spesa: ' + listTxt(L.map(x => x.name))); toast(`${L.length} cose messe in dispensa`) }
   else if (a === 'rate') rateDish(ds.k, +ds.v); else if (a === 'eatadd') eatAdd(ds.k); else if (a === 'rplus') ricSheet(); else if (a === 'rimp') importModal(); else if (a === 'rview') { S.rview = ds.v; S.lmax = 60; if (S.rf) S.rf.fonte = ''; render() }
-  else if (a === 'lmore') { S.lmax = (S.lmax || 60) + 60; render() } else if (a === 'popen') propModal(ds.pid); else if (a === 'lopen') propModal(ds.id, null, 'libro'); else if (a === 'pdel') { const old = PROPS.slice(); PROPS = PROPS.filter(x => x.pid !== ds.pid); propSave(); render(); toast('Proposta tolta', () => { PROPS = old; propSave(); render() }) }
+  else if (a === 'lclear') libroClear(ds.f || ''); else if (a === 'lmore') { S.lmax = (S.lmax || 60) + 60; render() } else if (a === 'popen') propModal(ds.pid); else if (a === 'lopen') propModal(ds.id, null, 'libro'); else if (a === 'pdel') { const old = PROPS.slice(); PROPS = PROPS.filter(x => x.pid !== ds.pid); propSave(); render(); toast('Proposta tolta', () => { PROPS = old; propSave(); render() }) }
   else if (a === 'pclear') { const old = PROPS.slice(); PROPS = []; propSave(); render(); toast('Proposte svuotate', () => { PROPS = old; propSave(); render() }) }
   else if (a === 'rfs') { const f = S.rf; const i = SORTS.findIndex(x => x[0] === f.sort); f.sort = SORTS[(i + 1) % SORTS.length][0]; render() }
   else if (a === 'rft') { S.rf[ds.v] = !S.rf[ds.v]; render() } else if (a === 'rftipo') { S.rf.tipo = S.rf.tipo === ds.v ? '' : ds.v; render() } else if (a === 'rffonte') { S.rf.fonte = S.rf.fonte === ds.v ? '' : ds.v; render() }
