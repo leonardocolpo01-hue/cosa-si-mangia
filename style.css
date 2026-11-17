@@ -440,3 +440,32 @@ details.more .segc{margin:4px 0}
 .idea .row a.bg{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
 .srclnk{margin:12px 0 0}.srclnk a{font-weight:700;color:var(--tomt)}
 #cnt{margin-top:6px}
+/* proposte, filtri, chiedi a Gemini */
+.fbar{display:flex;gap:6px;overflow-x:auto;padding:4px 2px 8px;margin:4px -2px 2px;scrollbar-width:none}
+.fbar::-webkit-scrollbar{display:none}
+.fbar .chip{flex:none;min-height:34px;font-size:13px;padding:0 12px;color:var(--mut)}
+.fbar .chip.on{background:var(--tom);color:#fff}
+.fbar .chip[data-act=rfs]{color:var(--ink)}
+.idea .iopen{all:unset;display:block;cursor:pointer;width:100%}
+.idea .iopen:focus-visible{outline:2px solid var(--tom);border-radius:10px}
+.src{font-size:11.5px;font-weight:800;padding:3px 8px;border-radius:99px;background:var(--card2);color:var(--mut);display:inline-block}
+.src.gz{background:var(--warnsoft);color:var(--warn)}.src.cu{background:light-dark(#e7eefc,#1a2440);color:light-dark(#264a9a,#9db8ff)}
+.sheet .sub .src{vertical-align:1px;margin-right:4px}
+.sheet .why{font-style:italic;margin:6px 0 0}
+.backl{display:block;margin:-4px 0 6px;font-weight:700}
+.prc .ih{display:flex;gap:8px;align-items:center;margin-bottom:2px}
+.prc .svd{font-size:12px;font-weight:800;color:var(--ok)}
+.rc.prc{position:relative}.rc.prc>.x{position:absolute;top:8px;right:6px}
+.pcl{list-style:none;text-align:center;padding:8px 0}
+#ask{margin-top:6px}
+.chat{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.bub{max-width:88%;padding:10px 12px;border-radius:16px;font-size:15px;line-height:1.4}
+.bub.u{align-self:flex-end;background:var(--tom);color:#fff;border-bottom-right-radius:6px}
+.bub.a{align-self:flex-start;background:var(--card);box-shadow:var(--sh);border-bottom-left-radius:6px}
+.bub.load{color:var(--mut)}
+.bub .var{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.bub .var small{display:block;color:var(--mut);margin:2px 0 8px}
+.bub .var .row{gap:6px}
+.askf{margin-top:6px}
+#ask .chips{margin:4px 0 6px}
+.rc.prc>button.x{width:auto;padding:4px 10px;box-shadow:none;background:none;display:block;font-size:22px;color:var(--mut)}.rc.prc>button:first-child{padding-right:40px}

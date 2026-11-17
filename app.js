@@ -464,10 +464,13 @@ function renderDisp() {
 }
 
 function renderRic() {
-  const ev = S.rview === 'mangiati'; $('#rseg').innerHTML = [['ricette', 'Ricette', S.ric.length], ['mangiati', 'Già mangiati', Object.keys(S.piatti || {}).length]].map(([k, l, c]) => `<button class="${(S.rview || 'ricette') === k ? 'on' : ''}" data-act="rview" data-v="${k}">${l} <small>${c}</small></button>`).join(''); $('#oc').hidden = ev; $('#rq').placeholder = ev ? 'Cerca un piatto…' : 'Cerca per nome o ingrediente…'; if (ev) return renderEaten();
-  const q = norm(S.rq); const L = S.ric.map(r => ({ r, m: match(r) })).filter(({ r, m }) => (!q || norm(r.name).includes(q) || (r.ingr || []).some(i => norm(i.n).includes(q)) || norm((r.tags || []).join(' ')).includes(q)) && (!S.onlyCan || !m.miss.length)).sort((a, b) => (a.m.miss.length - b.m.miss.length) || String(a.r.name).localeCompare(b.r.name, 'it'));
-  $('#rlist').innerHTML = L.length ? L.map(({ r, m }) => `<li class="rc"><button data-act="ropen" data-id="${r.id}"><b>${esc(r.name)}</b><span class="meta">${r.tempo ? esc(r.tempo) + ' min · ' : ''}${esc(r.porz || 4)} porzioni${(r.tags || []).length ? ' · ' + esc(r.tags.join(', ')) : ''}</span><span class="bar"><i style="width:${m.tot ? Math.round(m.ok / m.tot * 100) : 100}%"></i></span><span class="mt">${m.miss.length ? `Hai ${m.ok} ingredienti su ${m.tot}. Mancano: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto per farla'}</span></button></li>`).join('')
-    : `<li class="empty">${S.ric.length ? 'Nessuna ricetta trovata.' : 'Nessuna ricetta ancora. Tocca + per scriverne una, importarla da una foto o farti proporre qualcosa con quello che avete.'}</li>`
+  const v = S.rview || 'ricette'; const ev = v === 'mangiati', pr = v === 'proposte';
+  $('#rseg').innerHTML = [['ricette', 'Ricette', S.ric.length], ['proposte', 'Proposte', PROPS.length], ['mangiati', 'Già mangiati', Object.keys(S.piatti || {}).length]].map(([k, l, c]) => `<button class="${v === k ? 'on' : ''}" data-act="rview" data-v="${k}">${l} <small>${c}</small></button>`).join('');
+  $('#rfil').innerHTML = ev ? '' : filterBar(pr); $('#rq').placeholder = ev ? 'Cerca un piatto…' : 'Cerca per nome o ingrediente…';
+  if (ev) return renderEaten(); if (pr) return renderProps();
+  const L = applyFilters(S.ric, false); const f = S.rf || {}; const nc = S.ric.filter(r => !r.tipo).length;
+  $('#rlist').innerHTML = (f.tipo && nc && gkey() ? `<li class="pcl"><button class="lnk" data-act="rclass">${nc === 1 ? '1 ricetta non ha' : nc + ' ricette non hanno'} il tipo: classificale con Gemini</button></li>` : '') + (L.length ? L.map(({ r, m }) => `<li class="rc"><button data-act="ropen" data-id="${r.id}"><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? esc(r.tempo) + ' min' : '', esc(r.porz || 4) + ' porzioni', esc(COURSE_L[tipoOf(r)] || ''), isVeg(r) ? 'vegetariana' : '', r.fonte ? esc(r.fonte) : ''].filter(Boolean).join(' · ')}</span><span class="bar"><i style="width:${m.tot ? Math.round(m.ok / m.tot * 100) : 100}%"></i></span><span class="mt">${m.miss.length ? `Hai ${m.ok} ingredienti su ${m.tot}. Mancano: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto per farla'}</span></button></li>`).join('')
+    : `<li class="empty">${S.ric.length ? 'Nessuna ricetta con questi filtri.' : 'Nessuna ricetta ancora. Tocca + per scriverne una, importarla o trovarne su GialloZafferano e Cucchiaio d\'Argento.'}</li>`)
 }
 
 const AISLE = ['verdura', 'frutta', 'carbo', 'proteine', 'latticini', 'condimenti', 'dolci', 'bevande', 'altro'];
@@ -551,6 +554,7 @@ function ricModal(id, n0) {
   ${need.length ? `<p style="margin:14px 0 0"><button class="bp wide" id="miss">Metti in spesa ${need.length === 1 ? 'l\'ingrediente che manca' : `i ${need.length} che mancano`}</button></p>` : '<p class="okm">Hai tutto in casa.</p>'}
   ${r.passi ? `<h3>Preparazione</h3><ol class="steps">${String(r.passi).split(/\n+/).map(s => s.trim()).filter(Boolean).map(s => `<li>${esc(s.replace(/^\d+[.)]\s*/, ''))}</li>`).join('')}</ol>` : ''}
   ${r.url && /^https:\/\//.test(r.url) ? `<p class="srclnk"><a href="${esc(r.url)}" target="_blank" rel="noopener">Apri la ricetta originale${r.fonte ? ' su ' + esc(r.fonte) : ''} ↗</a></p>` : ''}
+  <div id="ask"></div>
   <h3>Mettila nel menu</h3><div class="row"><select id="md" aria-label="Giorno">${opts}</select><select id="mm" aria-label="Pasto">${MEALS.map(([k, l]) => `<option value="${k}"${k === 's' ? ' selected' : ''}>${l}</option>`).join('')}</select><button class="bg" id="madd">Aggiungi</button></div>
   <div class="acts"><button class="bd" id="del">Elimina</button><button class="bg" id="kp">Manda a Keep</button><button class="bg" id="ed">Modifica</button><button class="bp" id="cook">L'ho cucinata</button></div>`, m => {
     const q = s => m.querySelector(s);
@@ -558,6 +562,7 @@ function ricModal(id, n0) {
     if (q('#miss')) q('#miss').onclick = () => { addToSpesa(need.map(x => ({ name: x.i.n, qty: x.s.need.q == null ? null : round(x.s.need.q), unit: x.s.need.u, from: r.name }))); toast(`Aggiunti ${need.length} alla spesa`); ricModal(id, n) };
     q('#madd').onclick = () => { addDish(q('#md').value, q('#mm').value, { id: rid(), t: r.name, rid: r.id, alt: false, course: '', picks: [] }); toast('Messa nel menu') };
     q('#ed').onclick = () => ricEdit(r);
+    askBox(q('#ask'), 'r:' + id, () => r, { label: 'Sostituisci la ricetta', apply: x => { const y = toRic(x); const { veg, ...r1 } = r; save('ricette', r.id, { ...r1, name: y.name || r.name, porz: y.porz || r.porz, tempo: y.tempo || r.tempo, ingr: y.ingr.length ? y.ingr : r.ingr, passi: y.passi || r.passi }); toast('Ricetta aggiornata'); ricModal(id) } });
     q('#kp').onclick = () => shareText(r.name, recipeText(r, n));
     q('#cook').onclick = () => { let c = 0; const ask = st.filter(({ s }) => isLv(s.it)).map(({ s }) => s.it.id); st.forEach(({ i, s }) => { const it = s.it; if (!it || isLv(it) || i.q == null) return; const nq = consume(it, i.q * f, i.u); if (nq == null) return; save('dispensa', it.id, { ...it, qty: nq }); c++ }); bumpDishes([{ t: r.name, rid: r.id }]); close(); if (ask.length) levelAsk(ask); toast(c ? `Dispensa aggiornata: ${c} ingredienti scalati` : ask.length ? 'Dimmi com\'è rimasto quello che misuri per livello' : 'Niente da scalare in dispensa') };
     q('#del').onclick = () => { close(); delU('ricette', id, r.name) }
@@ -570,8 +575,9 @@ function ricEdit(r, fresh) {
   <div class="row"><label>Porzioni<input name="porz" type="number" min="1" inputmode="numeric" value="${esc(r.porz || 4)}"></label><label>Tempo (min)<input name="tempo" type="number" min="0" inputmode="numeric" value="${esc(r.tempo || '')}"></label></div>
   <label>Ingredienti <small>uno per riga, es. "200 g pasta", "2 uova", "sale q.b."</small><textarea name="ingr" rows="7">${esc((r.ingr || []).map(lineOf).join('\n'))}</textarea></label>
   <label>Preparazione <small>un passaggio per riga</small><textarea name="passi" rows="6">${esc(r.passi || '')}</textarea></label>
+  <label>Tipo<select name="tipo"><option value="">—</option>${TIPI.map(([k, l]) => `<option value="${k}"${tipoOf(r) === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
   <label>Etichette <small>separate da virgola</small><input name="tags" value="${esc((r.tags || []).join(', '))}" placeholder="veloce, vegetariano, dolce" autocomplete="off"></label>${acts()}</form>`, m => {
-    m.querySelector('#f').onsubmit = e => { e.preventDefault(); const f = e.target; const id = save('ricette', isNew ? null : r.id, { name: E(f, 'nome').value.trim(), porz: +E(f, 'porz').value || 4, tempo: +E(f, 'tempo').value || '', ingr: E(f, 'ingr').value.split('\n').map(parseLine).filter(Boolean).map(({ ux, ...i }) => i), passi: E(f, 'passi').value.trim(), tags: E(f, 'tags').value.split(',').map(s => s.trim()).filter(Boolean), ...(r && r.url ? { url: r.url, fonte: r.fonte || '' } : {}) }); ricModal(id) }
+    m.querySelector('#f').onsubmit = e => { e.preventDefault(); const f = e.target; const id = save('ricette', isNew ? null : r.id, { name: E(f, 'nome').value.trim(), porz: +E(f, 'porz').value || 4, tempo: +E(f, 'tempo').value || '', ingr: E(f, 'ingr').value.split('\n').map(parseLine).filter(Boolean).map(({ ux, ...i }) => i), passi: E(f, 'passi').value.trim(), tags: E(f, 'tags').value.split(',').map(s => s.trim()).filter(Boolean), tipo: E(f, 'tipo').value, ...(r && r.url ? { url: r.url, fonte: r.fonte || '' } : {}) }); ricModal(id) }
   })
 }
 
@@ -629,10 +635,11 @@ const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { cons
 function siteOf(u) { try { const h = new URL(u).hostname.replace(/^www\./, ''); const k = Object.keys(AI_SITES).find(d => h === d || h.endsWith('.' + d)); return k ? AI_SITES[k] : '' } catch (e) { return '' } }
 function siteSearch(name, fonte) { const d = /cucchiaio/i.test(fonte || '') ? 'cucchiaio.it' : 'giallozafferano.it'; return 'https://www.google.com/search?q=' + encodeURIComponent(name + ' site:' + d) }
 
+let AI_RES = { all: [], np: 4, v: '', chips: [], focus: '' };
 function aiModal() {
   if (!gkey()) { modal(`<h2>Trova ricette</h2><p class="sub">Per cercare ricette su GialloZafferano e Cucchiaio d'Argento, o farle inventare, serve Gemini, che è gratuito. Attivalo dalle impostazioni e torna qui.</p><div class="acts"><button class="bg" data-act="close">Chiudi</button><button class="bp" data-act="settings">Impostazioni</button></div>`); return }
   const n0 = heads(today(), 's') || 4;
-  const st = { src: LS.get('aisrc') || 'siti', mode: LS.get('aimode') || 'libero', cnt: +LS.get('aicnt') || 6, chips: new Set(), shown: [], all: [], busy: false };
+  const st = { src: LS.get('aisrc') || 'siti', mode: LS.get('aimode') || 'libero', cnt: +LS.get('aicnt') || 6, chips: new Set(AI_RES.chips), shown: [], all: AI_RES.all, busy: false };
   const seg = (id, opts, cur) => `<div class="segc${opts.length > 2 ? ' seg3' : ''}" id="${id}">${opts.map(([k, l]) => `<button type="button" data-k="${k}" class="${String(k) === String(cur) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   modal(`<h2>Trova ricette</h2><p class="sub">Ricette vere dai siti di cucina, oppure idee inventate da Gemini. Ogni volta che cerchi escono ricette nuove.</p><form id="f">
   <label>Da dove?</label>${seg('src', [['siti', 'GialloZafferano e Cucchiaio d\'Argento'], ['gemini', 'Inventate da Gemini']], st.src)}
@@ -662,7 +669,7 @@ function aiModal() {
       if (recent.length) p += `NON proporre queste ricette, già viste: ${recent.join('; ')}.\n`;
       return p
     };
-    const FMT = '{"ricette":[{"nome":"...","fonte":"GialloZafferano o Cucchiaio d\'Argento o vuoto","url":"https://... o vuoto","porzioni":4,"tempo":30,"ingredienti":[{"n":"nome in minuscolo","q":200,"u":"g"}],"perche":"una frase breve"}]} dove "u" è uno tra g, kg, ml, l, pz, cucchiai, spicchi, fette, qb e "q" è un numero o null';
+    const FMT = '{"ricette":[{"nome":"...","fonte":"GialloZafferano o Cucchiaio d\'Argento o vuoto","url":"https://... o vuoto","porzioni":4,"tempo":30,"ingredienti":[{"n":"nome in minuscolo","q":200,"u":"g"}],"tipo":"antipasto o primo o secondo o contorno o unico o dolce","veg":true,"perche":"una frase breve"}]} dove "u" è uno tra g, kg, ml, l, pz, cucchiai, spicchi, fette, qb e "q" è un numero o null';
     const ask = async (np, want, k) => {
       const base = buildPrompt(np, want, k);
       if (st.src === 'gemini') { const r = await gemini([{ text: 'Sei un cuoco di casa italiano. ' + base + '\nPer ogni ricetta scrivi anche i passaggi in "passi" (lista di frasi). Rispondi SOLO con JSON in questa forma: ' + FMT.replace('"perche"', '"passi":["..."],"perche"') }]); return (r && r.ricette) || (Array.isArray(r) ? r : []) }
@@ -672,33 +679,29 @@ function aiModal() {
       try { const r = JSON.parse(t.slice(a, b + 1)); return r.ricette || [] }
       catch (e) { const r = await gemini([{ text: 'Trasforma questo elenco di ricette in JSON, senza inventare niente. Rispondi SOLO con JSON in questa forma: ' + FMT + '\n\n' + t.slice(0, 15000) }]); return (r && r.ricette) || [] }
     };
-    const toR = (x, np) => { const r = toRic(x); r.porz = +x.porzioni || np; r.why = String(x.perche || ''); r.tags = ['idea'];
+    const toR = (x, np) => { const r = toRic(x); r.porz = +x.porzioni || np; r.why = String(x.perche || ''); r.tags = ['idea']; r.tipo = TIPI.some(([k]) => k === x.tipo) ? x.tipo : ''; if (typeof x.veg === 'boolean') r.veg = x.veg; r.pid = rid(); r.ts = Date.now();
       if (st.src === 'siti') { const u = String(x.url || '').trim(); const ok = /^https:\/\//.test(u) && siteOf(u); r.fonte = ok ? siteOf(u) : (/cucchiaio/i.test(x.fonte || '') ? 'Cucchiaio d\'Argento' : 'GialloZafferano'); r.url = ok ? u : ''; r.link = ok ? u : siteSearch(r.name, r.fonte) }
       else r.fonte = ''; return r };
     const card = (r, j) => { const mi = match(r).miss; const tot = match(r).tot;
-      return `<div class="idea"><div class="ih"><span class="src ${r.fonte ? (/cucchiaio/i.test(r.fonte) ? 'cu' : 'gz') : 'gm'}">${r.fonte ? esc(r.fonte) : 'Idea di Gemini'}</span>${r.tempo ? `<span class="tm">${esc(r.tempo)} min</span>` : ''}</div><h4>${esc(r.name)}</h4>${r.why ? `<p class="why">${esc(r.why)}</p>` : ''}
-      <p>${r.ingr.map(i => esc(i.n)).join(', ')}</p><p class="${mi.length ? 'miss' : 'okm2'}">${mi.length ? `Da comprare (${mi.length} su ${tot}): ${mi.map(i => esc(i.n)).join(', ')}` : 'Hai tutto in casa'}</p>
-      <div class="row">${r.link ? `<a class="bg" href="${esc(r.link)}" target="_blank" rel="noopener">${r.url ? 'Apri ↗' : 'Cerca sul sito ↗'}</a>` : ''}${mi.length ? `<button class="bg" data-buy="${j}">In spesa</button>` : ''}<button class="bp" data-save="${j}">Salva</button></div></div>` };
+      return `<div class="idea" id="pc_${esc(r.pid)}"><button class="iopen" data-open="${j}"><span class="ih"><span class="src ${r.fonte ? (/cucchiaio/i.test(r.fonte) ? 'cu' : 'gz') : 'gm'}">${r.fonte ? esc(r.fonte) : 'Idea di Gemini'}</span>${r.tempo ? `<span class="tm">${esc(r.tempo)} min</span>` : ''}</span><h4>${esc(r.name)}</h4>${r.why ? `<p class="why">${esc(r.why)}</p>` : ''}
+      <p>${(r.ingr || []).map(i => esc(i.n)).join(', ')}</p><p class="${mi.length ? 'miss' : 'okm2'}">${mi.length ? `Da comprare (${mi.length} su ${tot}): ${mi.map(i => esc(i.n)).join(', ')}` : 'Hai tutto in casa'}</p></button>
+      <div class="row"><button class="bg" data-open="${j}">Vedi la ricetta</button><button class="${propSaved(r) ? 'bg' : 'bp'}" data-save="${j}">${propSaved(r) ? 'Salvata ✓' : 'Salva'}</button></div></div>` };
     const draw = np => {
-      out.innerHTML = st.all.length ? `<h3>${st.all.length === 1 ? "1 ricetta" : st.all.length + " ricette"}</h3>` + st.all.map(card).join('') : '';
-      out.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => { const r = st.all[+b.dataset.buy]; const mi = match(r).miss; const k = mi.filter(i => !S.spesa.some(x => !x.done && same(x.name, i.n))).length; addToSpesa(mi.map(i => ({ name: i.n, qty: i.q == null ? null : round(i.q * np / (r.porz || np)), unit: i.q == null ? '' : i.u, from: r.name }))); b.disabled = true; b.textContent = 'In spesa ✓'; toast(k ? `${k} ${k === 1 ? 'ingrediente messo' : 'ingredienti messi'} in lista della spesa` : 'Erano già tutti in lista') });
-      out.querySelectorAll('[data-save]').forEach(b => b.onclick = async () => {
-        const r = st.all[+b.dataset.save]; const { why, link, ...data } = r; b.disabled = true;
-        if (r.url) { b.textContent = 'Prendo il procedimento…'; try { const x = await gemini([{ text: `Apri questa pagina: ${r.url} ed estrai la ricetta che contiene, in italiano. Rispondi SOLO con JSON: ` + RIC_FMT }], null, { tools: [{ url_context: {} }] }); const y = toRic((x && x.ricetta) || x || {}); if (y.ingr.length) { data.ingr = y.ingr; data.porz = y.porz || data.porz } if (y.passi) data.passi = y.passi; if (y.tempo) data.tempo = y.tempo } catch (e) { console.warn(e) } }
-        if (!data.passi && r.link) data.passi = 'Procedimento sul sito: ' + r.link;
-        const id = save('ricette', null, data); toast('Ricetta salvata'); ricModal(id, np)
-      });
+      AI_RES.np = np;
+      out.innerHTML = st.all.length ? `<h3>${st.all.length === 1 ? "1 ricetta" : st.all.length + " ricette"}</h3><p class="hint">Tocca una ricetta per vederla, chiedere varianti e decidere se salvarla. Le ritrovi tutte in Ricette → Proposte.</p>` + st.all.map(card).join('') : '';
+      out.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { const r = st.all[+b.dataset.open]; AI_RES.focus = r.pid; AI_RES.v = E(q('#f'), 'v').value; AI_RES.chips = [...st.chips]; propModal(r.pid, () => aiModal()) });
+      out.querySelectorAll('[data-save]').forEach(b => b.onclick = () => { const r = st.all[+b.dataset.save]; if (propSaved(r)) { AI_RES.focus = r.pid; ricModal(r.rid); return } saveProp(r, b) });
       more.innerHTML = st.all.length ? `<button class="bg wide" id="again">Altre ${st.cnt} ricette</button>` : '';
       if (q('#again')) q('#again').onclick = () => run(true)
     };
     const run = async append => {
       if (st.busy) return; st.busy = true; const f = q('#f'); const np = +E(f, 'n').value || n0;
       const want = [E(f, 'v').value.trim(), ...st.chips].filter(Boolean).join(', ');
-      if (!append) { st.all = []; out.innerHTML = '' }
+      if (!append) { st.all.length = 0; out.innerHTML = '' }
       more.innerHTML = `<p class="load">${st.src === 'siti' ? 'Cerco su GialloZafferano e Cucchiaio d\'Argento…' : 'Sto pensando a cosa potete cucinare…'}</p>`; q('#go').disabled = true;
       try {
         const arr = await ask(np, want, st.cnt);
-        let R = arr.filter(x => x && x.nome).map(x => toR(x, np)).filter(r => !st.all.some(o => norm(o.name) === norm(r.name)));
+        let R = arr.filter(x => x && x.nome).map(x => toR(x, np)).filter(r => !st.all.some(o => norm(o.name) === norm(r.name))).map(propUpsert);
         if (st.mode !== 'libero') R.sort((a, b) => match(a).miss.length - match(b).miss.length);
         st.all.push(...R); st.shown.push(...R.map(r => r.name)); LS.set('aiseen', [...R.map(r => r.name), ...(LS.get('aiseen') || [])].slice(0, 60));
         draw(np); if (!R.length) more.innerHTML = '<p class="load">Non ho trovato niente di nuovo: prova a cambiare richiesta.</p>' + more.innerHTML;
@@ -707,6 +710,7 @@ function aiModal() {
       st.busy = false; q('#go').disabled = false
     };
     q('#f').onsubmit = e => { e.preventDefault(); run(false) };
+    if (st.all.length) { E(q('#f'), 'v').value = AI_RES.v || ''; m.querySelectorAll('#ch .chip').forEach(b => b.classList.toggle('on', st.chips.has(b.dataset.c))); E(q('#f'), 'n').value = AI_RES.np; draw(AI_RES.np); more.innerHTML = `<button class="bg wide" id="again">Altre ${st.cnt} ricette</button>`; q('#again').onclick = () => run(true); const fc = AI_RES.focus && m.querySelector('#pc_' + CSS.escape(AI_RES.focus)); if (fc) setTimeout(() => fc.scrollIntoView({ block: 'center' }), 30) }
   })
 }
 
@@ -1531,6 +1535,107 @@ function dayBrief() {
   return `<div class="brief"><p><b>${hr < 12 ? 'Buongiorno' : hr < 18 ? 'Buon pomeriggio' : 'Buonasera'}${S.me ? ', ' + esc(meName()) : ''}.</b> ${esc(bits.join('; '))}.</p><button class="x" data-act="briefx" aria-label="Chiudi">×</button></div>`
 }
 
+/* ---------- proposte salvate, filtri, chiedi a Gemini ---------- */
+const TIPI = COURSES.filter(([k]) => k);
+const TIPO_RX = [['dolce', /\b(dolc|tort[ae]\b(?! salat)|biscott|crostat|tiramis|budin|gelat|muffin|ciambell|panna cotta|semifredd|plumcake|crema pasticc|frittell|cheesecake|brownie|cantucc)/], ['primo', /\b(risott|pasta|spaghett|lasagn|gnocch|tagliatell|penne|fusill|raviol|tortellin|zupp|minestr|vellutat|orecchiett|linguin|paccher|rigaton|bucatin|farfall|tagliolin|pappardell|cannellon|passatell|carbonara|amatriciana|pasta e fagioli|bigoli|maccheron)/], ['contorno', /\b(contorn|insalat|patate (al forno|arrosto)|verdure (grigliate|al forno)|caponata|purè|spinaci|fagiolini|peperonat|carciofi trifolati|funghi trifolati)/], ['antipasto', /\b(antipast|bruschett|crostin|tartin|vol au vent|finger)/], ['unico', /\b(pizz|focacc|torta salata|quiche|piatto unico|panin|piadin|burger|cous ?cous|poke|insalatona)/]];
+const MEATFISH = /\b(carne|manzo|vitell|maial|pollo|tacchin|agnell|coniglio|salsicc|prosciutt|pancett|guancial|speck|salam|mortadell|bresaol|wurstel|ragù|ragu|macinat|bistecc|fegat|anatra|cotechin|zampone|lardo|nduja|pesce|tonno|salmon|merluzz|baccal|gamber|cozz|vongol|calamar|seppi|polp|acciug|alic|sgombr|branzin|orata|trot|sogliol|scampi|aragost|granchi|surimi|brodo di (carne|pollo|manzo))/;
+const tipoOf = r => r.tipo || (TIPO_RX.find(([, rx]) => rx.test(norm(r.name || ''))) || [''])[0] || ((r.tags || []).map(norm).find(t => TIPI.some(([k]) => k === t)) || '');
+const isVeg = r => r.veg != null ? !!r.veg : !MEATFISH.test(norm([r.name, ...(r.ingr || []).map(i => i.n)].join(' ')));
+const fastOf = r => +r.tempo > 0 && +r.tempo <= 30;
+let PROPS = LS.get('aiprop', []);
+const propSave = () => { PROPS = PROPS.slice(0, 120); LS.set('aiprop', PROPS) };
+function propUpsert(r) { const i = PROPS.findIndex(p => p.pid === r.pid || norm(p.name) === norm(r.name)); const { link, ...v } = r; if (i >= 0) { v.pid = PROPS[i].pid; v.rid = PROPS[i].rid || v.rid; if (PROPS[i] !== r) Object.assign(PROPS[i], v); if (!r.link) delete PROPS[i].link } else PROPS.unshift(v); propSave(); return i >= 0 ? PROPS[i] : PROPS[0] }
+const propGet = pid => PROPS.find(p => p.pid === pid);
+const propSaved = p => p.rid && S.ric.some(r => r.id === p.rid);
+const linkOf = p => p.url || (p.fonte ? siteSearch(p.name, p.fonte) : '');
+
+async function fetchProc(p) {
+  const x = await gemini([{ text: `Apri questa pagina: ${p.url} ed estrai la ricetta che contiene, in italiano. Rispondi SOLO con JSON: ` + RIC_FMT }], null, { tools: [{ url_context: {} }] });
+  const y = toRic((x && x.ricetta) || x || {}); if (y.ingr.length) { p.ingr = y.ingr; p.porz = y.porz || p.porz } if (y.passi) p.passi = y.passi; if (y.tempo) p.tempo = y.tempo; propUpsert(p); return !!y.passi
+}
+async function saveProp(p, btn) {
+  if (propSaved(p)) { ricModal(p.rid); return }
+  if (btn) { btn.disabled = true; btn.textContent = p.url && !p.passi ? 'Prendo il procedimento…' : 'Salvo…' }
+  if (p.url && !p.passi) { try { await fetchProc(p) } catch (e) { console.warn(e) } }
+  const data = { name: p.name, porz: +p.porz || 4, tempo: p.tempo || '', ingr: p.ingr || [], passi: p.passi || (linkOf(p) ? 'Procedimento sul sito: ' + linkOf(p) : ''), tags: ['proposta'], tipo: tipoOf(p), veg: isVeg(p), ...(p.url ? { url: p.url, fonte: p.fonte || '' } : {}) };
+  p.rid = save('ricette', null, data); propUpsert(p); logA('ha salvato la ricetta ' + p.name);
+  if (btn) { btn.disabled = false; btn.textContent = 'Salvata ✓'; btn.classList.remove('bp'); btn.classList.add('bg') }
+  toast('Ricetta salvata in Ricette'); return p.rid
+}
+
+function propModal(pid, back) {
+  const p = propGet(pid); if (!p) return; const n = +p.porz || 4;
+  const st = (p.ingr || []).map(i => ({ i, s: ingStatus(i, 1) })); const need = st.filter(x => x.s.st !== 'y'); const lk = linkOf(p);
+  modal(`${back ? '<button class="lnk backl" id="pback">‹ Torna alle proposte</button>' : ''}<h2>${esc(p.name)}</h2>
+  <p class="sub"><span class="src ${p.fonte ? (/cucchiaio/i.test(p.fonte) ? 'cu' : 'gz') : 'gm'}">${p.fonte ? esc(p.fonte) : 'Idea di Gemini'}</span> ${[p.tempo ? p.tempo + ' min' : '', 'per ' + n, COURSE_L[tipoOf(p)] || '', isVeg(p) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</p>
+  ${p.why ? `<p class="why">${esc(p.why)}</p>` : ''}
+  <h3>Ingredienti</h3><ul class="ing">${st.map(({ i, s }) => `<li class="${s.st}"><span class="mk">${s.st === 'y' ? '✓' : s.st === 'p' ? '!' : '✗'}</span><span>${esc(i.n)}</span><span class="q">${fmtQ(i.q, i.u)}</span></li>`).join('') || '<li>Ingredienti non indicati.</li>'}</ul>
+  ${p.passi ? `<h3>Preparazione</h3><ol class="steps">${String(p.passi).split(/\n+/).map(s => s.trim()).filter(Boolean).map(s => `<li>${esc(s.replace(/^\d+[.)]\s*/, ''))}</li>`).join('')}</ol>` : p.url ? `<p style="margin-top:14px"><button class="bg wide" id="proc">Leggi il procedimento dal sito</button></p>` : ''}
+  ${lk ? `<p class="srclnk"><a href="${esc(lk)}" target="_blank" rel="noopener">${p.url ? 'Apri la ricetta originale' : 'Cerca la ricetta'}${p.fonte ? ' su ' + esc(p.fonte) : ''} ↗</a></p>` : ''}
+  <div id="ask"></div>
+  <div class="acts">${need.length ? `<button class="bg" id="pbuy">Metti in spesa (${need.length})</button>` : ''}<button class="${propSaved(p) ? 'bg' : 'bp'}" id="psave">${propSaved(p) ? 'Salvata ✓ · Apri' : 'Salva tra le ricette'}</button></div>`, m => {
+    const q = s => m.querySelector(s);
+    if (q('#pback')) q('#pback').onclick = back;
+    if (q('#proc')) q('#proc').onclick = async e => { e.target.disabled = true; e.target.textContent = 'Leggo la pagina…'; try { const ok = await fetchProc(p); if (ok) propModal(pid, back); else { e.target.textContent = 'Non ci sono riuscito: apri il sito'; } } catch (x) { e.target.textContent = 'Non ci sono riuscito: apri il sito' } };
+    if (q('#pbuy')) q('#pbuy').onclick = e => { addToSpesa(need.map(x => ({ name: x.i.n, qty: x.s.need.q == null ? null : round(x.s.need.q), unit: x.s.need.u, from: p.name }))); e.target.disabled = true; e.target.textContent = 'In spesa ✓'; toast(`${need.length} ${need.length === 1 ? 'ingrediente messo' : 'ingredienti messi'} in lista della spesa`) };
+    q('#psave').onclick = e => { if (propSaved(p)) ricModal(p.rid); else saveProp(p, e.target).then(() => { const b = q('#psave'); if (b) b.textContent = 'Salvata ✓ · Apri' }) };
+    askBox(q('#ask'), 'p:' + pid, () => p, { label: 'Usa questa versione', apply: x => { const y = toRic(x); Object.assign(p, { name: y.name || p.name, ingr: y.ingr.length ? y.ingr : p.ingr, passi: y.passi || p.passi, porz: y.porz || p.porz, tempo: y.tempo || p.tempo }); delete p.veg; propUpsert(p); propModal(pid, back); toast('Ricetta aggiornata con la variazione') } })
+  })
+}
+
+/* chiedi a Gemini su una ricetta: domande e variazioni, anche a voce */
+const CHAT = {};
+const ASK_SUGG = ['Versione vegetariana', 'Più leggera', 'Senza forno', 'Con quello che ho in casa', 'Dimezza le dosi', 'Cosa posso preparare prima?'];
+function askBox(el, key, getR, opts = {}) {
+  if (!el) return; const log = CHAT[key] || (CHAT[key] = []);
+  if (!gkey()) { el.innerHTML = `<h3>Chiedi a Gemini</h3><p class="hint">Per fare domande sulla ricetta o chiedere variazioni serve Gemini. <button class="lnk" data-act="settings">Attivalo nelle impostazioni</button>.</p>`; return }
+  const bubble = (x, i) => x.who === 'u' ? `<div class="bub u">${esc(x.t)}</div>` : `<div class="bub a">${esc(x.t).replace(/\n/g, '<br>')}${x.r ? `<div class="var"><b>${esc(x.r.nome || 'Variazione')}</b><small>${(x.r.ingredienti || []).map(g => esc(g.n)).join(', ')}</small><div class="row">${opts.apply ? `<button class="bg" data-ap="${i}">${esc(opts.label || 'Sostituisci la ricetta')}</button>` : ''}<button class="bp" data-nw="${i}">Salva come nuova</button></div></div>` : ''}</div>`;
+  el.innerHTML = `<h3>Chiedi a Gemini</h3><p class="hint">Domande sul procedimento, sostituzioni, varianti. Puoi anche parlare.</p><div class="chat"></div>
+  <div class="chips">${ASK_SUGG.map(s => `<button type="button" class="chip" data-s="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+  <form class="qa askf"><input name="q" placeholder="Es. posso usare il burro al posto dell'olio?" autocomplete="off" enterkeyhint="send">${micHtml()}<button class="bp">Chiedi</button></form>`;
+  const chat = el.querySelector('.chat'), f = el.querySelector('form'), inp = E(f, 'q');
+  const draw = (busy) => { chat.innerHTML = log.map(bubble).join('') + (busy ? '<div class="bub a load">Ci penso…</div>' : ''); chat.hidden = !log.length && !busy;
+    chat.querySelectorAll('[data-ap]').forEach(b => b.onclick = () => opts.apply(log[+b.dataset.ap].r));
+    chat.querySelectorAll('[data-nw]').forEach(b => b.onclick = () => { const r0 = getR(); const y = toRic(log[+b.dataset.nw].r); const id = save('ricette', null, { ...y, name: y.name || r0.name + ' (variante)', tags: ['variante'], tipo: tipoOf(r0) }); toast('Variante salvata in Ricette'); ricModal(id) }) };
+  draw(false); wireMic(f, inp);
+  let busy = false;
+  const ask = async t => {
+    if (busy || !t) return; busy = true; log.push({ who: 'u', t }); inp.value = ''; draw(true);
+    const r = getR(); const hist = log.slice(-7, -1).map(x => (x.who === 'u' ? 'Famiglia: ' : 'Tu: ') + x.t).join('\n');
+    const p = `Sei un cuoco di casa italiano esperto, pratico e gentile. Stiamo parlando di questa ricetta:\n\n${r.name}\n${recipeText(r, +r.porz || 4)}\n\nIn casa hanno: ${S.disp.filter(d => !zero(d)).map(d => d.name).join(', ') || 'non si sa'}.${tastesText() ? '\nGusti della famiglia: ' + tastesText() + '.' : ''}${hist ? '\n\nConversazione finora:\n' + hist : ''}\n\nNuova domanda della famiglia: ${t}\n\nRispondi in italiano, in modo semplice e pratico, al massimo 120 parole, senza markdown. Se la domanda chiede di cambiare la ricetta (una variante, una sostituzione, dosi diverse, una versione diversa), metti in "ricetta" la ricetta completa modificata; altrimenti "ricetta" è null.\nRispondi SOLO con JSON: {"risposta":"...","ricetta":null} oppure con "ricetta" nella forma ${RIC_FMT}`;
+    try { const res = await gemini([{ text: p }]); const rr = res && res.ricetta && res.ricetta.ingredienti ? res.ricetta : null; log.push({ who: 'a', t: String((res && res.risposta) || (rr ? 'Ecco la versione modificata.' : 'Non ho una risposta, prova a chiedere in un altro modo.')), r: rr }) }
+    catch (e) { log.push({ who: 'a', t: 'Non è andata: ' + (e.message || e) }) }
+    busy = false; if (chat.isConnected) { draw(false); chat.lastElementChild && chat.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }
+  };
+  f.onsubmit = e => { e.preventDefault(); ask(inp.value.trim()) };
+  el.querySelectorAll('.chips .chip').forEach(b => b.onclick = () => ask(b.dataset.s));
+}
+
+/* elenco ricette e proposte: filtri e ordinamento */
+const SORTS = [['casa', 'cosa avete'], ['tempo', 'più veloci'], ['nome', 'nome'], ['recenti', 'più recenti']];
+function filterBar(prop) {
+  const f = S.rf || (S.rf = { tipo: '', fast: false, veg: false, can: false, fonte: '', sort: 'casa' });
+  const c = (act, v, on, l) => `<button class="chip${on ? ' on' : ''}" data-act="${act}" data-v="${v}">${l}</button>`;
+  return `<div class="fbar">${c('rfs', '', false, 'Ordina: ' + (SORTS.find(s => s[0] === f.sort) || SORTS[0])[1] + ' ▾')}${c('rft', 'can', f.can, 'Si può fare')}${c('rft', 'fast', f.fast, 'Veloci')}${c('rft', 'veg', f.veg, 'Vegetariane')}${TIPI.map(([k, l]) => c('rftipo', k, f.tipo === k, l)).join('')}${prop ? [['GialloZafferano', 'GialloZafferano'], ['Cucchiaio d\'Argento', 'Cucchiaio'], ['gemini', 'Gemini']].map(([k, l]) => c('rffonte', k, f.fonte === k, l)).join('') : ''}</div>`
+}
+function applyFilters(L, prop) {
+  const f = S.rf || {}; const q = norm(S.rq || '');
+  let out = L.map(r => ({ r, m: match(r) })).filter(({ r, m }) => (!q || norm(r.name).includes(q) || (r.ingr || []).some(i => norm(i.n).includes(q)) || norm((r.tags || []).join(' ')).includes(q)) && (!f.can || !m.miss.length) && (!f.fast || fastOf(r)) && (!f.veg || isVeg(r)) && (!f.tipo || tipoOf(r) === f.tipo) && (!prop || !f.fonte || (f.fonte === 'gemini' ? !r.fonte : r.fonte === f.fonte)));
+  const by = { casa: (a, b) => (a.m.miss.length - b.m.miss.length) || String(a.r.name).localeCompare(b.r.name, 'it'), tempo: (a, b) => (+a.r.tempo || 999) - (+b.r.tempo || 999), nome: (a, b) => String(a.r.name).localeCompare(b.r.name, 'it'), recenti: (a, b) => (b.r.ts || 0) - (a.r.ts || 0) }[f.sort || 'casa'];
+  return out.sort(by)
+}
+function renderProps() {
+  const L = applyFilters(PROPS, true);
+  $('#rlist').innerHTML = (PROPS.length ? '' : '<li class="empty">Qui trovi tutte le ricette che ti ha proposto "Trova ricette", anche dopo aver chiuso. Tocca + e poi "Trova ricette".</li>') + L.map(({ r, m }) => `<li class="rc prc"><button data-act="popen" data-pid="${esc(r.pid)}"><span class="ih"><span class="src ${r.fonte ? (/cucchiaio/i.test(r.fonte) ? 'cu' : 'gz') : 'gm'}">${r.fonte ? esc(r.fonte) : 'Gemini'}</span>${propSaved(r) ? '<span class="svd">✓ salvata</span>' : ''}</span><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? r.tempo + ' min' : '', COURSE_L[tipoOf(r)] || '', isVeg(r) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</span><span class="mt">${m.miss.length ? `Mancano ${m.miss.length}: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto in casa'}</span></button><button class="x" data-act="pdel" data-pid="${esc(r.pid)}" aria-label="Togli">×</button></li>`).join('')
+    + (PROPS.length && !L.length ? '<li class="empty">Nessuna proposta con questi filtri.</li>' : '') + (PROPS.length ? '<li class="pcl"><button class="lnk" data-act="pclear">Svuota le proposte</button></li>' : '')
+}
+async function classifyRics() {
+  const L = S.ric.filter(r => !r.tipo); if (!L.length || !gkey()) return; toast('Classifico ' + L.length + ' ricette…');
+  try { const res = await gemini([{ text: `Classifica queste ricette italiane. Per ognuna dai "tipo" (uno tra antipasto, primo, secondo, contorno, unico, dolce) e "veg" (true se vegetariana, cioè senza carne e pesce).\n${L.map((r, i) => `${i}. ${r.name}: ${(r.ingr || []).map(x => x.n).join(', ')}`).join('\n')}\nRispondi SOLO con JSON: {"r":[{"i":0,"tipo":"primo","veg":true}]}` }]);
+    let k = 0; ((res && res.r) || []).forEach(x => { const r = L[+x.i]; if (r && TIPI.some(([t]) => t === x.tipo)) { save('ricette', r.id, { ...r, tipo: x.tipo, veg: !!x.veg }); k++ } }); toast(k ? `${k} ricette classificate` : 'Gemini non ha risposto, riprova') }
+  catch (e) { toast('Non è andata: ' + (e.message || e)) }
+}
+
 /* ---------- eventi ---------- */
 document.addEventListener('click', e => {
   if (e.target.id === 'modal') { close(); return } const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act, ds = b.dataset;
@@ -1538,6 +1643,11 @@ document.addEventListener('click', e => {
   else if (a === 'shtog') { const x = S.spesa.find(y => y.id === ds.id); if (x) save('spesa', x.id, { ...x, done: !x.done }) }
   else if (a === 'shend') { const L = S.spesa.filter(x => x.done); close(); L.forEach(x => { mergeDisp({ name: x.name, qty: x.qty, unit: x.unit, ux: x.qty != null }); del('spesa', x.id) }); logA('ha messo in dispensa la spesa: ' + listTxt(L.map(x => x.name))); toast(`${L.length} cose messe in dispensa`) }
   else if (a === 'rate') rateDish(ds.k, +ds.v); else if (a === 'eatadd') eatAdd(ds.k); else if (a === 'rplus') ricSheet(); else if (a === 'rimp') importModal(); else if (a === 'rview') { S.rview = ds.v; render() }
+  else if (a === 'popen') propModal(ds.pid); else if (a === 'pdel') { const old = PROPS.slice(); PROPS = PROPS.filter(x => x.pid !== ds.pid); propSave(); render(); toast('Proposta tolta', () => { PROPS = old; propSave(); render() }) }
+  else if (a === 'pclear') { const old = PROPS.slice(); PROPS = []; propSave(); render(); toast('Proposte svuotate', () => { PROPS = old; propSave(); render() }) }
+  else if (a === 'rfs') { const f = S.rf; const i = SORTS.findIndex(x => x[0] === f.sort); f.sort = SORTS[(i + 1) % SORTS.length][0]; render() }
+  else if (a === 'rft') { S.rf[ds.v] = !S.rf[ds.v]; render() } else if (a === 'rftipo') { S.rf.tipo = S.rf.tipo === ds.v ? '' : ds.v; render() } else if (a === 'rffonte') { S.rf.fonte = S.rf.fonte === ds.v ? '' : ds.v; render() }
+  else if (a === 'rclass') classifyRics();
   else if (a === 'briefx') { LS.set('brief', today()); render() }
   else if (a === 'spchi') { const o = ['', ...members().map(m => m.id)]; const nx = o[(o.indexOf(S.spesaChi || '') + 1) % o.length]; S.spesaChi = nx; render(); if (F) F.fs.setDoc(famRef(), { spesaChi: nx || F.fs.deleteField() }, { merge: true }).catch(werr); const nm = (members().find(m => m.id === nx) || {}).name; if (nm) logA(`ha segnato che ${nm} va a fare la spesa`) } else if (a === 'who') whoModal(); else if (a === 'settings') settingsModal();
   else if (a === 'wk') { S.week += +ds.v; S.sel = null; subWeek(); render() } else if (a === 'wk0') { S.week = 0; S.sel = null; subWeek(); render() } else if (a === 'sel') { S.sel = ds.d; render() } else if (a === 'pick') togglePick(ds.d, ds.meal, +ds.i); else if (a === 'cook') cookMeal(ds.d, ds.meal); else if (a === 'leftover') leftoverModal(ds.d, ds.meal); else if (a === 'spese') speseModal(); else if (a === 'uncook') undoCook(ds.d, ds.meal); else if (a === 'dplus') addSheet(); else if (a === 'fold') { const i = S.fold.indexOf(ds.v); if (i >= 0) S.fold.splice(i, 1); else S.fold.push(ds.v); LS.set('fold', S.fold); render() } else if (a === 'ddel') delU('dispensa', ds.id); else if (a === 'migok' || a === 'migno') { const L = S.disp.filter(d => !isLv(d) && !d.trackSet && !zero(d) && prof(d.name).lv); L.forEach(d => save('dispensa', d.id, a === 'migok' ? { ...d, track: 'livello', trackSet: true, unit: LV_UNITS.includes(d.unit) && d.unit !== 'pz' ? d.unit : 'conf', qty: d.qty || 1, lvl: 'pieno' } : { ...d, trackSet: true })); if (a === 'migok') toast(`${L.length} prodotti ora si contano per livello`) }
@@ -1559,7 +1669,6 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => { const id = e.target.dataset && e.target.dataset.sp; if (id) { const x = S.spesa.find(s => s.id === id); if (x) save('spesa', id, { ...x, done: e.target.checked }) } });
 $('#q').addEventListener('input', e => { S.q = e.target.value; renderDisp() });
 $('#rq').addEventListener('input', e => { S.rq = e.target.value; renderRic() });
-$('#onlycan').addEventListener('change', e => { S.onlyCan = e.target.checked; renderRic() });
 $('#spmic').innerHTML = micHtml(); wireMic($('#spadd'), $('#spin'));
 $('#spadd').addEventListener('submit', e => { e.preventDefault(); const L = parseMany($('#spin').value); if (!L.length) return; addToSpesa(L.map(p => ({ name: p.n, qty: p.q, unit: p.ux && p.u !== 'qb' ? p.u : spesaUnit(p.n) }))); $('#spin').value = ''; if (L.length > 1) toast(`${L.length} cose in lista`) });
 
