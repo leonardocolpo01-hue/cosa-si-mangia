@@ -504,7 +504,7 @@ function renderRic() {
   $('#rseg').innerHTML = [['ricette', 'Ricette', S.ric.length], ['libro', 'Libro', S.libro.length], ['proposte', 'Proposte', PROPS.length], ['mangiati', 'Mangiati', Object.keys(S.piatti || {}).length]].map(([k, l, c]) => `<button class="${v === k ? 'on' : ''}" data-act="rview" data-v="${k}">${l} <small>${c}</small></button>`).join('');
   $('#rfil').innerHTML = ev ? '' : filterBar(lb ? 'libro' : pr); $('#rq').placeholder = ev ? 'Cerca un piatto…' : 'Cerca per nome o ingrediente…';
   if (ev) return renderEaten(); if (pr) return renderProps(); if (lb) return renderLibro();
-  const L = applyFilters(S.ric, false); const f = S.rf || {}; const nc = S.ric.filter(r => !r.tipo).length;
+  const L = applyFilters(S.ric, false); const f = S.rf || {}; const nc = S.ric.filter(r => !r.tipo && !r.tipoSet && !tipoOf(r)).length;
   $('#rlist').innerHTML = (f.tipo && nc && gkey() ? `<li class="pcl"><button class="lnk" data-act="rclass">${nc === 1 ? '1 ricetta non ha' : nc + ' ricette non hanno'} il tipo: classificale con Gemini</button></li>` : '') + (L.length ? L.map(({ r, m }) => `<li class="rc"><button data-act="ropen" data-id="${r.id}"><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? esc(r.tempo) + ' min' : '', esc(r.porz || 4) + ' porzioni', esc(COURSE_L[tipoOf(r)] || ''), isVeg(r) ? 'vegetariana' : '', r.fonte ? esc(r.fonte) : ''].filter(Boolean).join(' · ')}</span><span class="bar"><i style="width:${m.tot ? Math.round(m.ok / m.tot * 100) : 100}%"></i></span><span class="mt">${m.miss.length ? `Hai ${m.ok} ingredienti su ${m.tot}. Mancano: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto per farla'}</span></button></li>`).join('')
     : `<li class="empty">${S.ric.length ? (rfState().mode === 'casa' ? 'Con quello che hai in casa non ci sono ricette di questo tipo.' : 'Nessuna ricetta con questi filtri.') + '<br><button class="bg" data-act="rfreset" style="margin-top:10px">Mostra tutte</button>' : 'Nessuna ricetta ancora. Tocca + per scriverne una, importarla o trovarne su GialloZafferano e Cucchiaio d\'Argento.'}</li>`)
 }
@@ -668,12 +668,13 @@ async function gemini(parts, onModel, opts = {}) {
   for (let i = 0; i < list.length; i++) {
     const model = list[i]; onModel && onModel(model);
     let r; const url = `${GBASE}models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(gkey())}`;
-    const gc = opts.tools || opts.raw ? {} : { responseMimeType: 'application/json' }; const body = () => ({ contents: [{ role: 'user', parts }], generationConfig: gc, ...(opts.tools ? { tools: opts.tools } : {}) });
+    const gc = opts.tools || opts.raw ? {} : { responseMimeType: 'application/json', ...(opts.schema ? { responseSchema: opts.schema } : {}) }; const body = () => ({ contents: [{ role: 'user', parts }], generationConfig: gc, ...(opts.tools ? { tools: opts.tools } : {}) });
     const v = parseFloat((model.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
     if (v >= 3 && !/lite/.test(model)) gc.thinkingConfig = { thinkingLevel: 'minimal' }; // risposte rapide, senza "ragionamento" lungo
     try {
       r = await gfetch(url, body(), opts.ms || (opts.tools ? 45000 : 30000));
       if (r.status === 400 && gc.thinkingConfig) { delete gc.thinkingConfig; r = await gfetch(url, body(), opts.ms || (opts.tools ? 45000 : 30000)) }
+      if (r.status === 400 && gc.responseSchema) { delete gc.responseSchema; r = await gfetch(url, body(), opts.ms || (opts.tools ? 45000 : 30000)) }
     } catch (e) { last = e; continue }
     if (r.status === 404 && !refreshed && !isCustom()) { refreshed = true; LS.del('gauto2'); list = await modelList(true); i = -1; continue }
     if ([429, 500, 503, 504].includes(r.status) || (r.status === 400 && opts.tools)) { last = await gErr(r); if (last.quota) quota = last; continue }
@@ -1777,23 +1778,30 @@ function renderLibro() {
     + L.map(({ r, m }) => `<li class="rc prc"><button data-act="lopen" data-id="${esc(r.id)}"><span class="ih">${r.fonte ? `<span class="src lb">${esc(r.fonte)}</span>` : ''}${r.rid && S.ric.some(x => x.id === r.rid) ? '<span class="svd">✓ tra le ricette</span>' : ''}</span><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? r.tempo + ' min' : '', COURSE_L[tipoOf(r)] || '', isVeg(r) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</span><span class="mt">${m.miss.length ? `Mancano ${m.miss.length}: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto in casa'}</span></button></li>`).join('')
     + (S.libro.length && !L.length ? '<li class="empty">' + (rfState().mode === 'casa' ? 'Con quello che hai in casa non ci sono ricette di questo tipo (al massimo 2 ingredienti da comprare).' : 'Nessuna ricetta con questi filtri.') + '<br><button class="bg" data-act="rfreset" style="margin-top:10px">Mostra tutte</button></li>' : '') + (L0.length > L.length ? `<li class="pcl"><button class="bg wide" data-act="lmore">Mostra altre (${L0.length - L.length})</button></li>` : '')
 }
+const TIPO_SCHEMA = { type: 'OBJECT', properties: { r: { type: 'ARRAY', items: { type: 'OBJECT', properties: { i: { type: 'INTEGER' }, tipo: { type: 'STRING', enum: ['antipasto', 'primo', 'secondo', 'contorno', 'unico', 'dolce', 'altro'] }, veg: { type: 'BOOLEAN' } }, required: ['i', 'tipo'] } } }, required: ['r'] };
+function tipoNorm(t) { t = norm(String(t || '')); if (!t) return null; if (/^altr|conserv|salsa|liquor|bevand|brodo|condiment/.test(t)) return ''; if (/unic|pizz|panin|torta salat/.test(t)) return 'unico'; if (/antipast|stuzzich|finger/.test(t)) return 'antipasto'; if (/^prim/.test(t)) return 'primo'; if (/^second/.test(t)) return 'secondo'; if (/contorn|verdur/.test(t)) return 'contorno'; if (/dolc|dessert/.test(t)) return 'dolce'; return null }
+function tipoList(res) { if (Array.isArray(res)) return res; if (!res || typeof res !== 'object') return []; if (Array.isArray(res.r)) return res.r; const a = Object.values(res).find(Array.isArray); if (a) return a; return Object.entries(res).filter(([k, v]) => /^\d+$/.test(k) && v).map(([k, v]) => typeof v === 'string' ? { i: +k, tipo: v } : { i: +k, ...v }) }
+async function classifyAsk(part, veg) {
+  const res = await gemini([{ text: `Classifica queste ricette italiane. Per ognuna dai "tipo": uno tra antipasto, primo, secondo, contorno, unico (piatto unico, pizza, panino, torta salata), dolce, oppure "altro" se è una conserva, una salsa, un liquore, un brodo o simili.${veg ? ' Dai anche "veg": true se è vegetariana (senza carne e pesce).' : ''}\n${part.map((r, j) => `${j}. ${r.name}: ${(r.ingr || []).slice(0, 8).map(x => x.n).join(', ')}`).join('\n')}\nRispondi SOLO con JSON: {"r":[{"i":0,"tipo":"primo"${veg ? ',"veg":true' : ''}}]} con un elemento per ogni ricetta.` }], null, { schema: TIPO_SCHEMA });
+  return tipoList(res).map((x, n) => { const idx = x.i ?? x.indice ?? x.id ?? x.n ?? n; const t = tipoNorm(x.tipo ?? x.categoria ?? x.portata ?? x.type); return { r: part[+idx], t, veg: x.veg } }).filter(x => x.r && x.t !== null)
+}
 async function classifyLibro() {
-  const L = S.libro.filter(r => !tipoOf(r) && !r.tipoSet); if (!L.length || !gkey()) return; toast(`Classifico ${L.length} ricette…`); let k = 0;
+  const L = S.libro.filter(r => !tipoOf(r) && !r.tipoSet); if (!L.length || !gkey()) return; toast(`Classifico ${L.length === 1 ? '1 ricetta' : L.length + ' ricette'}…`); let k = 0;
   try {
     for (let i = 0; i < L.length; i += 40) {
-      const part = L.slice(i, i + 40);
-      const res = await gemini([{ text: `Classifica queste ricette italiane. Per ognuna dai "tipo": uno tra antipasto, primo, secondo, contorno, unico (piatto unico, pizza, panino, torta salata), dolce, oppure "altro" se è una conserva, una salsa, un liquore, un brodo o simili.\n${part.map((r, j) => `${j}. ${r.name}: ${(r.ingr || []).slice(0, 8).map(x => x.n).join(', ')}`).join('\n')}\nRispondi SOLO con JSON: {"r":[{"i":0,"tipo":"primo"}]}` }]);
-      const up = ((res && res.r) || []).map(x => { const r = part[+x.i]; if (!r) return null; const t = x.tipo === 'altro' ? '' : x.tipo; if (t && !TIPI.some(([q]) => q === t)) return null; k++; return { ...r, tipo: t, tipoSet: true } }).filter(Boolean);
+      const got = await classifyAsk(L.slice(i, i + 40));
+      const up = got.map(x => { k++; return { ...x.r, tipo: x.t, tipoSet: true } });
       if (up.length) saveMany('libro', up)
     }
     toast(k ? `${k === 1 ? '1 ricetta classificata' : k + ' ricette classificate'}` : 'Gemini non ha risposto, riprova')
   } catch (e) { toast('Non è andata: ' + (e.message || e)) }
 }
 async function classifyRics() {
-  const L = S.ric.filter(r => !r.tipo); if (!L.length || !gkey()) return; toast('Classifico ' + L.length + ' ricette…');
-  try { const res = await gemini([{ text: `Classifica queste ricette italiane. Per ognuna dai "tipo" (uno tra antipasto, primo, secondo, contorno, unico, dolce) e "veg" (true se vegetariana, cioè senza carne e pesce).\n${L.map((r, i) => `${i}. ${r.name}: ${(r.ingr || []).map(x => x.n).join(', ')}`).join('\n')}\nRispondi SOLO con JSON: {"r":[{"i":0,"tipo":"primo","veg":true}]}` }]);
-    let k = 0; ((res && res.r) || []).forEach(x => { const r = L[+x.i]; if (r && TIPI.some(([t]) => t === x.tipo)) { save('ricette', r.id, { ...r, tipo: x.tipo, veg: !!x.veg }); k++ } }); toast(k ? `${k === 1 ? '1 ricetta classificata' : k + ' ricette classificate'}` : 'Gemini non ha risposto, riprova') }
-  catch (e) { toast('Non è andata: ' + (e.message || e)) }
+  const L = S.ric.filter(r => !r.tipo && !r.tipoSet); if (!L.length || !gkey()) return; toast(`Classifico ${L.length === 1 ? '1 ricetta' : L.length + ' ricette'}…`); let k = 0;
+  try {
+    for (let i = 0; i < L.length; i += 40) { const got = await classifyAsk(L.slice(i, i + 40), true); got.forEach(x => { save('ricette', x.r.id, { ...x.r, tipo: x.t, tipoSet: true, ...(typeof x.veg === 'boolean' ? { veg: x.veg } : {}) }); k++ }) }
+    toast(k ? `${k === 1 ? '1 ricetta classificata' : k + ' ricette classificate'}` : 'Gemini non ha risposto, riprova')
+  } catch (e) { toast('Non è andata: ' + (e.message || e)) }
 }
 
 /* ---------- tante ricette insieme: da PDF (Gemini) o da file .json ---------- */
