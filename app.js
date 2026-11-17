@@ -17,10 +17,10 @@ const COLORS = ['#d8432a', '#2f6fe0', '#d39100', '#13917f'];
 const MEALS = [['c', 'Colazione'], ['p', 'Pranzo'], ['s', 'Cena']];
 const LUOGHI = [['frigo', 'Frigo'], ['dispensa', 'Dispensa'], ['freezer', 'Freezer']];
 const LUOGO_L = { frigo: 'Frigo', dispensa: 'Dispensa', freezer: 'Freezer' };
-const UNITS = ['pz', 'g', 'kg', 'ml', 'l', 'conf', 'vasetti', 'barattoli', 'bottiglie', 'scatole', 'pacchi', 'bustine', 'tubetti', 'lattine', 'rotoli', 'cucchiai', 'spicchi', 'fette', 'qb'];
+const UNITS = ['pz', 'g', 'kg', 'ml', 'l', 'conf', 'vasetti', 'barattoli', 'bottiglie', 'scatole', 'pacchi', 'bustine', 'tubetti', 'lattine', 'rotoli', 'cucchiai', 'cucchiaini', 'spicchi', 'fette', 'qb'];
 const PACK = ['conf', 'pz', 'vasetti', 'barattoli', 'bottiglie', 'scatole', 'pacchi', 'bustine', 'tubetti', 'lattine', 'rotoli'];
 const LV_UNITS = [...PACK, 'g', 'kg', 'ml', 'l'];
-const SING = { vasetti: 'vasetto', barattoli: 'barattolo', bottiglie: 'bottiglia', scatole: 'scatola', pacchi: 'pacco', bustine: 'bustina', tubetti: 'tubetto', lattine: 'lattina', rotoli: 'rotolo' };
+const SING = { vasetti: 'vasetto', barattoli: 'barattolo', bottiglie: 'bottiglia', scatole: 'scatola', pacchi: 'pacco', bustine: 'bustina', tubetti: 'tubetto', lattine: 'lattina', rotoli: 'rotolo', cucchiai: 'cucchiaio', cucchiaini: 'cucchiaino', spicchi: 'spicchio', fette: 'fetta' };
 const isPack = u => PACK.includes(u || 'conf');
 const uLabel = (u, q) => (q === 1 && SING[u]) || u || 'conf';
 const STAPLES = ['sale', 'pepe', 'acqua', 'sale fino', 'sale grosso'];
@@ -106,10 +106,10 @@ function same(a, b) {
   return true
 }
 function guessLuogo(n) { n = norm(n); if (FREEZER_KW.some(k => n.includes(k))) return 'freezer'; if (FRIGO_KW.some(k => n.includes(k))) return 'frigo'; return 'dispensa' }
-const UMAP = { g: 'g', gr: 'g', grammi: 'g', grammo: 'g', kg: 'kg', chili: 'kg', ml: 'ml', l: 'l', lt: 'l', litro: 'l', litri: 'l', pz: 'pz', pezzi: 'pz', conf: 'conf', confezione: 'conf', confezioni: 'conf', cucchiaio: 'cucchiai', cucchiai: 'cucchiai', cucchiaino: 'cucchiai', cucchiaini: 'cucchiai', spicchio: 'spicchi', spicchi: 'spicchi', fetta: 'fette', fette: 'fette', litro: 'l', kilo: 'kg', kili: 'kg', pezzo: 'pz', scatoletta: 'scatole', scatolette: 'scatole', busta: 'conf', buste: 'conf', cespo: 'pz', mazzo: 'pz', panetto: 'conf', vaschetta: 'conf', vaschette: 'conf', brick: 'conf', cartone: 'conf', cartoni: 'conf', sacchetto: 'conf', sacchetti: 'conf', retina: 'conf', vasetto: 'vasetti', vasetti: 'vasetti', barattolo: 'barattoli', barattoli: 'barattoli', bottiglia: 'bottiglie', bottiglie: 'bottiglie', scatola: 'scatole', scatole: 'scatole', pacco: 'pacchi', pacchi: 'pacchi', pacchetto: 'pacchi', pacchetti: 'pacchi', bustina: 'bustine', bustine: 'bustine', tubetto: 'tubetti', tubetti: 'tubetti', lattina: 'lattine', lattine: 'lattine', rotolo: 'rotoli', rotoli: 'rotoli' };
+const UMAP = { g: 'g', gr: 'g', grammi: 'g', grammo: 'g', kg: 'kg', chili: 'kg', ml: 'ml', l: 'l', lt: 'l', litro: 'l', litri: 'l', pz: 'pz', pezzi: 'pz', conf: 'conf', confezione: 'conf', confezioni: 'conf', cucchiaio: 'cucchiai', cucchiai: 'cucchiai', cucchiaino: 'cucchiaini', cucchiaini: 'cucchiaini', cucchiaiate: 'cucchiai', cucchiaiata: 'cucchiai', spicchio: 'spicchi', spicchi: 'spicchi', fetta: 'fette', fette: 'fette', litro: 'l', kilo: 'kg', kili: 'kg', pezzo: 'pz', scatoletta: 'scatole', scatolette: 'scatole', busta: 'conf', buste: 'conf', cespo: 'pz', mazzo: 'pz', panetto: 'conf', vaschetta: 'conf', vaschette: 'conf', brick: 'conf', cartone: 'conf', cartoni: 'conf', sacchetto: 'conf', sacchetti: 'conf', retina: 'conf', vasetto: 'vasetti', vasetti: 'vasetti', barattolo: 'barattoli', barattoli: 'barattoli', bottiglia: 'bottiglie', bottiglie: 'bottiglie', scatola: 'scatole', scatole: 'scatole', pacco: 'pacchi', pacchi: 'pacchi', pacchetto: 'pacchi', pacchetti: 'pacchi', bustina: 'bustine', bustine: 'bustine', tubetto: 'tubetti', tubetti: 'tubetti', lattina: 'lattine', lattine: 'lattine', rotolo: 'rotoli', rotoli: 'rotoli' };
 const lineOf = i => i.u === 'qb' ? `${i.n} q.b.` : `${i.q != null ? numFmt.format(i.q) + ' ' : ''}${i.u && i.u !== 'pz' ? i.u + ' ' : ''}${i.n}`;
 function fmtQ(q, u) { if (u === 'qb') return 'q.b.'; if (q == null || q === '') return ''; let v = +q; if (u === 'g' || u === 'ml') v = v >= 50 ? Math.round(v / 5) * 5 : Math.round(v); return numFmt.format(v) + ' ' + ((v === 1 && SING[u]) || u || 'pz') }
-const BASE = { kg: ['g', 1000], g: ['g', 1], l: ['ml', 1000], ml: ['ml', 1] };
+const BASE = { kg: ['g', 1000], g: ['g', 1], l: ['ml', 1000], ml: ['ml', 1], cucchiai: ['cucchiaini', 3], cucchiaini: ['cucchiaini', 1] };
 const toBase = (q, u) => { const b = BASE[u]; return b ? [q * b[1], b[0]] : [q, u || 'pz'] };
 const stepFor = u => u === 'g' || u === 'ml' ? 100 : u === 'kg' || u === 'l' ? .5 : 1;
 const haveItem = n => S.disp.find(d => same(d.name, n) && !(typeof d.qty === 'number' && d.qty <= 0));
@@ -271,7 +271,7 @@ function dberr(e) { console.warn(e); S.note = fbMsg(e); render() }
 const KEY = { dispensa: 'disp', ricette: 'ric', spesa: 'spesa', spese: 'spese', libro: 'libro' };
 function save(c, id, data) { const arr = S[KEY[c]]; id = id || rid(); const v = { ...data }; delete v.id; const i = arr.findIndex(x => x.id === id); if (i >= 0) arr[i] = { id, ...v }; else arr.push({ id, ...v }); render(); if (F) F.fs.setDoc(dref(c, id), v).catch(werr); return id }
 function saveMany(c, list) {
-  const arr = S[KEY[c]]; const items = list.map(data => { const id = rid(); const v = { ...data }; delete v.id; arr.push({ id, ...v }); return [id, v] }); render();
+  const arr = S[KEY[c]]; const items = list.map(data => { const id = data.id || rid(); const v = { ...data }; delete v.id; const i = arr.findIndex(x => x.id === id); if (i >= 0) arr[i] = { id, ...v }; else arr.push({ id, ...v }); return [id, v] }); render();
   if (F) { if (F.fs.writeBatch) { for (let i = 0; i < items.length; i += 400) { const b = F.fs.writeBatch(F.db); items.slice(i, i + 400).forEach(([id, v]) => b.set(dref(c, id), v)); b.commit().catch(werr) } } else items.forEach(([id, v]) => F.fs.setDoc(dref(c, id), v).catch(werr)) }
   return items.map(x => x[0])
 }
@@ -686,7 +686,7 @@ function aiModal() {
       if (recent.length) p += `NON proporre queste ricette, già viste: ${recent.join('; ')}.\n`;
       return p
     };
-    const FMT = '{"ricette":[{"nome":"...","fonte":"GialloZafferano o Cucchiaio d\'Argento o vuoto","url":"https://... o vuoto","porzioni":4,"tempo":30,"ingredienti":[{"n":"nome in minuscolo","q":200,"u":"g"}],"tipo":"antipasto o primo o secondo o contorno o unico o dolce","veg":true,"perche":"una frase breve"}]} dove "u" è uno tra g, kg, ml, l, pz, cucchiai, spicchi, fette, qb e "q" è un numero o null';
+    const FMT = '{"ricette":[{"nome":"...","fonte":"GialloZafferano o Cucchiaio d\'Argento o vuoto","url":"https://... o vuoto","porzioni":4,"tempo":30,"ingredienti":[{"n":"nome in minuscolo","q":200,"u":"g"}],"tipo":"antipasto o primo o secondo o contorno o unico o dolce","veg":true,"perche":"una frase breve"}]} dove "u" è uno tra g, kg, ml, l, pz, cucchiai, cucchiaini, spicchi, fette, qb e "q" è un numero o null';
     const viaTavily = async (np, want, k, base) => {
       const seenU = new Set([...(LS.get('aiurls', []) || []), ...st.all.map(r => r.url).filter(Boolean)]);
       const mods = ['', 'facile', 'veloce', 'della tradizione', 'al forno', 'leggera', 'sfiziosa', 'della nonna', 'di stagione', 'economica'];
@@ -1174,7 +1174,7 @@ function askProf(name) { if (!gkey() || !prof(name).unknown || profQ.includes(na
 async function runProf() {
   const names = profQ.splice(0, 12); if (!names.length) return;
   try {
-    const r = await gemini([{ text: `Sei l'assistente di una dispensa di casa italiana. Per ognuno di questi prodotti: ${JSON.stringify(names)} dimmi come si tiene il conto e come si usa. Campi: "n" = il nome esatto che ti ho dato; "u" = unità con cui si conta in dispensa, una tra pz, g, kg, ml, l, conf, vasetti, barattoli, bottiglie, scatole, pacchi, bustine, tubetti, lattine; "pack" = quante di quelle unità ci sono in una confezione tipica (numero) oppure null; "use" = unità con cui si usa in cucina, una tra pz, g, ml, cucchiai, fette, bustine, vasetti, qb; "per" = dose tipica a testa in quell'unità (numero) oppure null; "lv" = true se si consuma poco alla volta e conviene segnare solo se la confezione è piena, a metà o quasi finita (es. marmellata, spezie, olio), altrimenti false. Rispondi SOLO con JSON: {"prodotti":[{"n":"...","u":"pz","pack":null,"use":"pz","per":1,"lv":false}]}` }]);
+    const r = await gemini([{ text: `Sei l'assistente di una dispensa di casa italiana. Per ognuno di questi prodotti: ${JSON.stringify(names)} dimmi come si tiene il conto e come si usa. Campi: "n" = il nome esatto che ti ho dato; "u" = unità con cui si conta in dispensa, una tra pz, g, kg, ml, l, conf, vasetti, barattoli, bottiglie, scatole, pacchi, bustine, tubetti, lattine; "pack" = quante di quelle unità ci sono in una confezione tipica (numero) oppure null; "use" = unità con cui si usa in cucina, una tra pz, g, ml, cucchiai, cucchiaini, fette, bustine, vasetti, qb; "per" = dose tipica a testa in quell'unità (numero) oppure null; "lv" = true se si consuma poco alla volta e conviene segnare solo se la confezione è piena, a metà o quasi finita (es. marmellata, spezie, olio), altrimenti false. Rispondi SOLO con JSON: {"prodotti":[{"n":"...","u":"pz","pack":null,"use":"pz","per":1,"lv":false}]}` }]);
     ((r && r.prodotti) || []).forEach(x => {
       if (!x || !x.n || !names.some(n => norm(n) === norm(x.n))) return; const u = UNITS.includes(x.u) ? x.u : 'pz';
       learnProf(x.n, { u, pack: +x.pack || null, use: UNITS.includes(x.use) ? x.use : u, per: +x.per || null, lv: !!x.lv, ai: true });
@@ -1575,7 +1575,7 @@ function liveScan() {
 }
 
 /* ---------- importare una ricetta da foto, testo o link ---------- */
-const RIC_FMT = '{"nome":"...","porzioni":4,"tempo":30,"ingredienti":[{"n":"nome in minuscolo","q":200,"u":"g"}],"passi":["..."]} dove "u" è uno tra g, kg, ml, l, pz, cucchiai, spicchi, fette, qb e "q" è un numero o null';
+const RIC_FMT = '{"nome":"...","porzioni":4,"tempo":30,"ingredienti":[{"n":"nome in minuscolo","q":200,"u":"g"}],"passi":["..."]} dove "u" è uno tra g, kg, ml, l, pz, cucchiai, cucchiaini, spicchi, fette, qb e "q" è un numero o null';
 const toRic = x => ({ name: String(x.nome || ''), porz: +x.porzioni || 4, tempo: +x.tempo || '', ingr: (x.ingredienti || []).filter(i => i && i.n).map(i => ({ n: String(i.n), q: i.q == null || i.q === '' ? null : +i.q, u: UNITS.includes(i.u) ? i.u : (UMAP[i.u] || 'pz') })), passi: (Array.isArray(x.passi) ? x.passi : [x.passi]).filter(Boolean).join('\n'), tags: [] });
 function importModal() {
   if (!gkey()) { modal(`<h2>Importa una ricetta</h2><p class="sub">Per leggere una ricetta da una foto, da un testo o da un link serve Gemini, che è gratuito. Attivalo dalle impostazioni e torna qui.</p><div class="acts"><button class="bg" data-act="close">Chiudi</button><button class="bp" data-act="settings">Impostazioni</button></div>`); return }
@@ -1720,7 +1720,7 @@ async function classifyRics() {
 }
 
 /* ---------- tante ricette insieme: da PDF (Gemini) o da file .json ---------- */
-const BOOK_FMT = '{"ricette":[{"nome":"...","porzioni":4,"tempo":30,"tipo":"antipasto o primo o secondo o contorno o unico o dolce","veg":true,"ingredienti":[{"n":"nome in minuscolo","q":200,"u":"g"}],"passi":["..."]}],"finito":true} dove "u" è uno tra g, kg, ml, l, pz, cucchiai, spicchi, fette, qb e "q" è un numero o null';
+const BOOK_FMT = '{"ricette":[{"nome":"...","porzioni":4,"tempo":30,"tipo":"antipasto o primo o secondo o contorno o unico o dolce","veg":true,"ingredienti":[{"n":"nome in minuscolo","q":200,"u":"g"}],"passi":["..."]}],"finito":true} dove "u" è uno tra g, kg, ml, l, pz, cucchiai, cucchiaini, spicchi, fette, qb e "q" è un numero o null';
 function normRic(x, fonte) {
   if (!x || typeof x !== 'object') return null;
   const r = x.nome || x.ingredienti ? toRic(x) : { name: String(x.name || ''), porz: +x.porz || 4, tempo: +x.tempo || '', ingr: (x.ingr || []).filter(i => i && i.n).map(i => ({ n: String(i.n), q: i.q == null || i.q === '' ? null : +i.q, u: UNITS.includes(i.u) ? i.u : (UMAP[i.u] || 'pz') })), passi: Array.isArray(x.passi) ? x.passi.join('\n') : String(x.passi || ''), tags: Array.isArray(x.tags) ? x.tags : [] };
@@ -1762,13 +1762,13 @@ function bulkReview(L, label) {
   const sel = L.map(r => !dup(r));
   modal(`<h2>${L.length === 1 ? '1 ricetta trovata' : L.length + ' ricette trovate'}</h2><p class="sub">Da <b>${esc(label)}</b>. Vanno nel <b>Libro mastro</b>, non tra le tue Ricette: lì le sfogli, Gemini te le può proporre, e salvi solo quelle che ti piacciono. Togli la spunta a quelle che non vuoi; quelle già presenti nel libro sono senza spunta.</p>
   <div class="row" style="margin-bottom:6px"><button class="bg" id="ball">Tutte</button><button class="bg" id="bnone">Nessuna</button></div>
-  <div class="card bulk">${L.map((r, i) => `<label class="bk"><input type="checkbox" data-i="${i}"${sel[i] ? ' checked' : ''}><span><b>${esc(r.name)}</b><small>${[COURSE_L[tipoOf(r)] || '', r.tempo ? r.tempo + ' min' : '', ((r.ingr || []).length === 1 ? '1 ingrediente' : (r.ingr || []).length + ' ingredienti'), r.passi ? '' : 'senza procedimento', dup(r) ? 'già nel libro' : ''].filter(Boolean).map(esc).join(' · ')}</small></span></label>`).join('')}</div>
+  <div class="card bulk">${L.map((r, i) => `<label class="bk"><input type="checkbox" data-i="${i}"${sel[i] ? ' checked' : ''}><span><b>${esc(r.name)}</b><small>${[COURSE_L[tipoOf(r)] || '', r.tempo ? r.tempo + ' min' : '', ((r.ingr || []).length === 1 ? '1 ingrediente' : (r.ingr || []).length + ' ingredienti'), r.passi ? '' : 'senza procedimento', dup(r) ? 'già nel libro: se la spunti la aggiorno' : ''].filter(Boolean).map(esc).join(' · ')}</small></span></label>`).join('')}</div>
   <div class="acts"><button class="bg" data-act="close">Annulla</button><button class="bp" id="bsave"></button></div>`, m => {
     const boxes = [...m.querySelectorAll('.bulk input')]; const btn = m.querySelector('#bsave');
     const upd = () => { const n = boxes.filter(b => b.checked).length; btn.textContent = n ? `Metti ${n === 1 ? '1 ricetta' : n + ' ricette'} nel Libro mastro` : 'Metti nel Libro mastro'; btn.disabled = !n };
     boxes.forEach(b => b.onchange = upd); upd();
     m.querySelector('#ball').onclick = () => { boxes.forEach(b => b.checked = true); upd() }; m.querySelector('#bnone').onclick = () => { boxes.forEach(b => b.checked = false); upd() };
-    btn.onclick = () => { const pick = boxes.filter(b => b.checked).map(b => L[+b.dataset.i]); const now = Date.now(); saveMany('libro', pick.map((r, i) => ({ ...r, ts: now + i }))); logA(`ha messo ${pick.length} ricette nel Libro mastro (${label})`); close(); S.rview = 'libro'; if (S.rf) S.rf.fonte = ''; go('ricette'); render(); toast(`${pick.length === 1 ? '1 ricetta' : pick.length + ' ricette'} nel Libro mastro`) };
+    btn.onclick = () => { const pick = boxes.filter(b => b.checked).map(b => L[+b.dataset.i]); const now = Date.now(); saveMany('libro', pick.map((r, i) => { const old = S.libro.find(o => norm(o.name) === norm(r.name)); return old ? { ...r, id: old.id, ts: old.ts || now + i, ...(old.rid ? { rid: old.rid } : {}) } : { ...r, ts: now + i } })); logA(`ha messo ${pick.length} ricette nel Libro mastro (${label})`); close(); S.rview = 'libro'; if (S.rf) S.rf.fonte = ''; go('ricette'); render(); toast(`${pick.length === 1 ? '1 ricetta' : pick.length + ' ricette'} nel Libro mastro`) };
   })
 }
 
