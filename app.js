@@ -619,6 +619,27 @@ function ricEdit(r, fresh) {
 
 /* ---------- Gemini (facoltativo) ---------- */
 const GBASE = 'https://generativelanguage.googleapis.com/v1beta/';
+// legge il JSON di Gemini anche quando aggiunge testo, ``` o più oggetti di fila
+function parseLoose(t) {
+  t = String(t || '').replace(/```(?:json)?/gi, '').trim();
+  try { return JSON.parse(t) } catch (e) { }
+  const a = t.search(/[[{]/), b = Math.max(t.lastIndexOf('}'), t.lastIndexOf(']'));
+  if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)) } catch (e) { } }
+  const vals = []; let depth = 0, start = -1, str = false, esc = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (str) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') str = false; continue }
+    if (c === '"') { str = true; continue }
+    if (c === '{' || c === '[') { if (!depth) start = i; depth++ }
+    else if ((c === '}' || c === ']') && depth) { depth--; if (!depth && start >= 0) { try { vals.push(JSON.parse(t.slice(start, i + 1))) } catch (e) { } start = -1 } }
+  }
+  if (!vals.length) throw new Error('risposta di Gemini non leggibile, riprova');
+  if (vals.length === 1) return vals[0];
+  const out = {}; let arr = false;
+  vals.forEach(v => { if (Array.isArray(v)) { out.r = (out.r || []).concat(v); arr = true; return } Object.entries(v).forEach(([k, x]) => { if (Array.isArray(x)) { out[k] = (out[k] || []).concat(x); arr = true } else if (!(k in out)) out[k] = x }) });
+  if (!arr) { out.r = vals; out.ricette = vals; out.scelte = vals }
+  return out
+}
 async function gErr(r) { let m = ''; try { m = (await r.json()).error.message || '' } catch (e) { } const k = /api key|api_key|permission|denied/i.test(m); if (r.status === 429 || (r.status === 400 && /grounding|search|billing|tool/i.test(m))) { const e = new Error(/quota|limit|billing|exhaust|tier/i.test(m) ? 'limite della chiave gratuita raggiunto (' + (m.split('\n')[0].slice(0, 120) || '429') + ')' : 'troppe richieste a Gemini, riprova tra un minuto'); e.quota = true; return e } return new Error(r.status === 429 ? 'troppe richieste a Gemini, riprova tra un minuto' : r.status === 503 ? 'Gemini 503: modello sovraccarico' : k ? 'chiave Gemini non valida o non abilitata' : `Gemini ${r.status}${m ? ': ' + m : ''}`) }
 const isCustom = () => { const m = LS.get('gmodel', ''); return m && m !== 'gemini-2.5-flash' ? m : '' };
 async function modelList(fresh) {
@@ -660,7 +681,7 @@ async function gemini(parts, onModel, opts = {}) {
     const j = await r.json(); const t = (j.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
     if (!t) { last = new Error('Gemini non ha risposto (' + (j.candidates?.[0]?.finishReason || j.promptFeedback?.blockReason || 'vuoto') + ')'); continue }
     if (!opts.tools) LS.set('gok', model); if (opts.raw) return t;
-    const a = t.indexOf('{'), b = t.lastIndexOf('}'); return JSON.parse(a >= 0 && b > a ? t.slice(a, b + 1) : t)
+    return parseLoose(t)
   }
   if (quota) throw quota;
   throw new Error(last && /503|429|high demand|troppe/i.test(last.message) ? 'Gemini in questo momento è sovraccarico su tutti i modelli: riprova tra qualche minuto' : (last && last.message) || 'Gemini non risponde')
@@ -1751,27 +1772,27 @@ function renderProps() {
     + (PROPS.length && !L.length ? '<li class="empty">Nessuna proposta con questi filtri.<br><button class="bg" data-act="rfreset" style="margin-top:10px">Mostra tutte</button></li>' : '') + (PROPS.length ? '<li class="pcl"><button class="lnk" data-act="pclear">Svuota le proposte</button></li>' : '')
 }
 function renderLibro() {
-  const L0 = applyFilters(S.libro, 'libro'); const L = L0.slice(0, S.lmax || 60); const nc = S.libro.filter(r => !tipoOf(r)).length;
+  const L0 = applyFilters(S.libro, 'libro'); const L = L0.slice(0, S.lmax || 60); const nc = S.libro.filter(r => !tipoOf(r) && !r.tipoSet).length;
   $('#rlist').innerHTML = ((S.rf || {}).tipo && nc && gkey() ? `<li class="pcl"><button class="lnk" data-act="lclass">${nc === 1 ? '1 ricetta del libro non ha' : nc + ' ricette del libro non hanno'} il tipo di piatto: classificale con Gemini</button></li>` : '') + (S.libro.length ? '' : '<li class="empty"><b>Il Libro mastro è vuoto.</b><br>Qui finiscono le ricette importate dai PDF o dai file: le sfogli, Gemini te le può proporre, e tra le tue Ricette metti solo quelle che ti piacciono. Tocca + e poi "Tante ricette insieme".</li>')
     + L.map(({ r, m }) => `<li class="rc prc"><button data-act="lopen" data-id="${esc(r.id)}"><span class="ih">${r.fonte ? `<span class="src lb">${esc(r.fonte)}</span>` : ''}${r.rid && S.ric.some(x => x.id === r.rid) ? '<span class="svd">✓ tra le ricette</span>' : ''}</span><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? r.tempo + ' min' : '', COURSE_L[tipoOf(r)] || '', isVeg(r) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</span><span class="mt">${m.miss.length ? `Mancano ${m.miss.length}: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto in casa'}</span></button></li>`).join('')
     + (S.libro.length && !L.length ? '<li class="empty">' + (rfState().mode === 'casa' ? 'Con quello che hai in casa non ci sono ricette di questo tipo (al massimo 2 ingredienti da comprare).' : 'Nessuna ricetta con questi filtri.') + '<br><button class="bg" data-act="rfreset" style="margin-top:10px">Mostra tutte</button></li>' : '') + (L0.length > L.length ? `<li class="pcl"><button class="bg wide" data-act="lmore">Mostra altre (${L0.length - L.length})</button></li>` : '')
 }
 async function classifyLibro() {
-  const L = S.libro.filter(r => !tipoOf(r)); if (!L.length || !gkey()) return; toast(`Classifico ${L.length} ricette…`); let k = 0;
+  const L = S.libro.filter(r => !tipoOf(r) && !r.tipoSet); if (!L.length || !gkey()) return; toast(`Classifico ${L.length} ricette…`); let k = 0;
   try {
-    for (let i = 0; i < L.length; i += 80) {
-      const part = L.slice(i, i + 80);
+    for (let i = 0; i < L.length; i += 40) {
+      const part = L.slice(i, i + 40);
       const res = await gemini([{ text: `Classifica queste ricette italiane. Per ognuna dai "tipo": uno tra antipasto, primo, secondo, contorno, unico (piatto unico, pizza, panino, torta salata), dolce, oppure "altro" se è una conserva, una salsa, un liquore, un brodo o simili.\n${part.map((r, j) => `${j}. ${r.name}: ${(r.ingr || []).slice(0, 8).map(x => x.n).join(', ')}`).join('\n')}\nRispondi SOLO con JSON: {"r":[{"i":0,"tipo":"primo"}]}` }]);
       const up = ((res && res.r) || []).map(x => { const r = part[+x.i]; if (!r) return null; const t = x.tipo === 'altro' ? '' : x.tipo; if (t && !TIPI.some(([q]) => q === t)) return null; k++; return { ...r, tipo: t, tipoSet: true } }).filter(Boolean);
       if (up.length) saveMany('libro', up)
     }
-    toast(k ? `${k} ricette classificate` : 'Gemini non ha risposto, riprova')
+    toast(k ? `${k === 1 ? '1 ricetta classificata' : k + ' ricette classificate'}` : 'Gemini non ha risposto, riprova')
   } catch (e) { toast('Non è andata: ' + (e.message || e)) }
 }
 async function classifyRics() {
   const L = S.ric.filter(r => !r.tipo); if (!L.length || !gkey()) return; toast('Classifico ' + L.length + ' ricette…');
   try { const res = await gemini([{ text: `Classifica queste ricette italiane. Per ognuna dai "tipo" (uno tra antipasto, primo, secondo, contorno, unico, dolce) e "veg" (true se vegetariana, cioè senza carne e pesce).\n${L.map((r, i) => `${i}. ${r.name}: ${(r.ingr || []).map(x => x.n).join(', ')}`).join('\n')}\nRispondi SOLO con JSON: {"r":[{"i":0,"tipo":"primo","veg":true}]}` }]);
-    let k = 0; ((res && res.r) || []).forEach(x => { const r = L[+x.i]; if (r && TIPI.some(([t]) => t === x.tipo)) { save('ricette', r.id, { ...r, tipo: x.tipo, veg: !!x.veg }); k++ } }); toast(k ? `${k} ricette classificate` : 'Gemini non ha risposto, riprova') }
+    let k = 0; ((res && res.r) || []).forEach(x => { const r = L[+x.i]; if (r && TIPI.some(([t]) => t === x.tipo)) { save('ricette', r.id, { ...r, tipo: x.tipo, veg: !!x.veg }); k++ } }); toast(k ? `${k === 1 ? '1 ricetta classificata' : k + ' ricette classificate'}` : 'Gemini non ha risposto, riprova') }
   catch (e) { toast('Non è andata: ' + (e.message || e)) }
 }
 
