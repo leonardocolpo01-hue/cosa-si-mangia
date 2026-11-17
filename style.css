@@ -479,3 +479,12 @@ details.more .segc{margin:4px 0}
 #rseg button{font-size:13px;padding:0 4px}
 #rseg small{font-size:11px}
 .fbar .chip.rst{color:var(--tomt);font-weight:700}
+/* filtri ricette: portate + mostra */
+.ctabs{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 8px;margin:6px -2px 0;scrollbar-width:none}
+.ctabs::-webkit-scrollbar{display:none}
+.ctabs button{flex:none;display:flex;align-items:center;gap:6px;min-height:38px;padding:0 14px;border-radius:99px;border:0;background:var(--card);box-shadow:var(--sh);font:inherit;font-size:14px;font-weight:700;color:var(--ink);cursor:pointer}
+.ctabs button small{font-size:11.5px;font-weight:700;color:var(--mut)}
+.ctabs button.on{background:var(--tom);color:#fff}.ctabs button.on small{color:rgba(255,255,255,.85)}
+.fsel{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 10px}
+.fsel .sel{display:flex;align-items:center;gap:6px;margin:0;flex:1 1 160px;min-width:0;font-size:13px;color:var(--mut);font-weight:700}
+.fsel .sel select{flex:1;min-width:0;min-height:38px;padding:0 10px;border-radius:12px;font-size:14px;font-weight:600}

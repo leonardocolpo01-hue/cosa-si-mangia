@@ -17,10 +17,10 @@ const COLORS = ['#d8432a', '#2f6fe0', '#d39100', '#13917f'];
 const MEALS = [['c', 'Colazione'], ['p', 'Pranzo'], ['s', 'Cena']];
 const LUOGHI = [['frigo', 'Frigo'], ['dispensa', 'Dispensa'], ['freezer', 'Freezer']];
 const LUOGO_L = { frigo: 'Frigo', dispensa: 'Dispensa', freezer: 'Freezer' };
-const UNITS = ['pz', 'g', 'kg', 'ml', 'l', 'conf', 'vasetti', 'barattoli', 'bottiglie', 'scatole', 'pacchi', 'bustine', 'tubetti', 'lattine', 'rotoli', 'cucchiai', 'cucchiaini', 'spicchi', 'fette', 'qb'];
+const UNITS = ['pz', 'g', 'kg', 'ml', 'l', 'conf', 'vasetti', 'barattoli', 'bottiglie', 'scatole', 'pacchi', 'bustine', 'tubetti', 'lattine', 'rotoli', 'cucchiai', 'cucchiaini', 'bicchieri', 'tazze', 'manciate', 'spicchi', 'fette', 'qb'];
 const PACK = ['conf', 'pz', 'vasetti', 'barattoli', 'bottiglie', 'scatole', 'pacchi', 'bustine', 'tubetti', 'lattine', 'rotoli'];
 const LV_UNITS = [...PACK, 'g', 'kg', 'ml', 'l'];
-const SING = { vasetti: 'vasetto', barattoli: 'barattolo', bottiglie: 'bottiglia', scatole: 'scatola', pacchi: 'pacco', bustine: 'bustina', tubetti: 'tubetto', lattine: 'lattina', rotoli: 'rotolo', cucchiai: 'cucchiaio', cucchiaini: 'cucchiaino', spicchi: 'spicchio', fette: 'fetta' };
+const SING = { vasetti: 'vasetto', barattoli: 'barattolo', bottiglie: 'bottiglia', scatole: 'scatola', pacchi: 'pacco', bustine: 'bustina', tubetti: 'tubetto', lattine: 'lattina', rotoli: 'rotolo', cucchiai: 'cucchiaio', cucchiaini: 'cucchiaino', bicchieri: 'bicchiere', tazze: 'tazza', manciate: 'manciata', spicchi: 'spicchio', fette: 'fetta' };
 const isPack = u => PACK.includes(u || 'conf');
 const uLabel = (u, q) => (q === 1 && SING[u]) || u || 'conf';
 const STAPLES = ['sale', 'pepe', 'acqua', 'sale fino', 'sale grosso'];
@@ -100,13 +100,13 @@ function same(a, b) {
   const tk = x => x.split(' ').filter(w => !STOPW.includes(w)).map(stem); const A = tk(a), B = tk(b); if (!A.length || !B.length) return false;
   const [s, l, ls] = A.length <= B.length ? [A, B, b] : [B, A, a];
   if (!s.every(w => l.includes(w))) return false; if (A.length === B.length) return true;
-  if (l.filter(w => !s.includes(w)).some(w => DIFFW.includes(w))) return false;
+  if (l.filter(w => !s.includes(w)).some(w => DIFFW.includes(w) && !(w === stem('grattugiato') && !s.includes('pan')) && !(w === 'sem' && ls.includes('semi stagionat')))) return false;
   if (!s.includes(l[0]) && !HEADOK.includes(l[0])) return false;
   const ws = ls.split(' '); for (let i = 0; i < ws.length - 1; i++) if (['di', 'd', 'al', 'alla', 'ai', 'alle', 'all'].includes(ws[i])) { const w = stem(ws[i + 1]); if (!s.includes(w) && !BENIGN.includes(w)) return false }
   return true
 }
 function guessLuogo(n) { n = norm(n); if (FREEZER_KW.some(k => n.includes(k))) return 'freezer'; if (FRIGO_KW.some(k => n.includes(k))) return 'frigo'; return 'dispensa' }
-const UMAP = { g: 'g', gr: 'g', grammi: 'g', grammo: 'g', kg: 'kg', chili: 'kg', ml: 'ml', l: 'l', lt: 'l', litro: 'l', litri: 'l', pz: 'pz', pezzi: 'pz', conf: 'conf', confezione: 'conf', confezioni: 'conf', cucchiaio: 'cucchiai', cucchiai: 'cucchiai', cucchiaino: 'cucchiaini', cucchiaini: 'cucchiaini', cucchiaiate: 'cucchiai', cucchiaiata: 'cucchiai', spicchio: 'spicchi', spicchi: 'spicchi', fetta: 'fette', fette: 'fette', litro: 'l', kilo: 'kg', kili: 'kg', pezzo: 'pz', scatoletta: 'scatole', scatolette: 'scatole', busta: 'conf', buste: 'conf', cespo: 'pz', mazzo: 'pz', panetto: 'conf', vaschetta: 'conf', vaschette: 'conf', brick: 'conf', cartone: 'conf', cartoni: 'conf', sacchetto: 'conf', sacchetti: 'conf', retina: 'conf', vasetto: 'vasetti', vasetti: 'vasetti', barattolo: 'barattoli', barattoli: 'barattoli', bottiglia: 'bottiglie', bottiglie: 'bottiglie', scatola: 'scatole', scatole: 'scatole', pacco: 'pacchi', pacchi: 'pacchi', pacchetto: 'pacchi', pacchetti: 'pacchi', bustina: 'bustine', bustine: 'bustine', tubetto: 'tubetti', tubetti: 'tubetti', lattina: 'lattine', lattine: 'lattine', rotolo: 'rotoli', rotoli: 'rotoli' };
+const UMAP = { g: 'g', gr: 'g', grammi: 'g', grammo: 'g', kg: 'kg', chili: 'kg', ml: 'ml', l: 'l', lt: 'l', litro: 'l', litri: 'l', pz: 'pz', pezzi: 'pz', conf: 'conf', confezione: 'conf', confezioni: 'conf', cucchiaio: 'cucchiai', cucchiai: 'cucchiai', cucchiaino: 'cucchiaini', cucchiaini: 'cucchiaini', cucchiaiate: 'cucchiai', cucchiaiata: 'cucchiai', bicchiere: 'bicchieri', bicchieri: 'bicchieri', tazza: 'tazze', tazze: 'tazze', manciata: 'manciate', manciate: 'manciate', fascio: 'pz', fasci: 'pz', mazzetto: 'pz', mazzetti: 'pz', ciuffo: 'pz', ciuffi: 'pz', cespi: 'pz', mazzi: 'pz', pizzico: 'qb', pizzichi: 'qb', spicchio: 'spicchi', spicchi: 'spicchi', fetta: 'fette', fette: 'fette', litro: 'l', kilo: 'kg', kili: 'kg', pezzo: 'pz', scatoletta: 'scatole', scatolette: 'scatole', busta: 'conf', buste: 'conf', cespo: 'pz', mazzo: 'pz', panetto: 'conf', vaschetta: 'conf', vaschette: 'conf', brick: 'conf', cartone: 'conf', cartoni: 'conf', sacchetto: 'conf', sacchetti: 'conf', retina: 'conf', vasetto: 'vasetti', vasetti: 'vasetti', barattolo: 'barattoli', barattoli: 'barattoli', bottiglia: 'bottiglie', bottiglie: 'bottiglie', scatola: 'scatole', scatole: 'scatole', pacco: 'pacchi', pacchi: 'pacchi', pacchetto: 'pacchi', pacchetti: 'pacchi', bustina: 'bustine', bustine: 'bustine', tubetto: 'tubetti', tubetti: 'tubetti', lattina: 'lattine', lattine: 'lattine', rotolo: 'rotoli', rotoli: 'rotoli' };
 const lineOf = i => i.u === 'qb' ? `${i.n} q.b.` : `${i.q != null ? numFmt.format(i.q) + ' ' : ''}${i.u && i.u !== 'pz' ? i.u + ' ' : ''}${i.n}`;
 function fmtQ(q, u) { if (u === 'qb') return 'q.b.'; if (q == null || q === '') return ''; let v = +q; if (u === 'g' || u === 'ml') v = v >= 50 ? Math.round(v / 5) * 5 : Math.round(v); return numFmt.format(v) + ' ' + ((v === 1 && SING[u]) || u || 'pz') }
 const BASE = { kg: ['g', 1000], g: ['g', 1], l: ['ml', 1000], ml: ['ml', 1], cucchiai: ['cucchiaini', 3], cucchiaini: ['cucchiaini', 1] };
@@ -506,7 +506,7 @@ function renderRic() {
   if (ev) return renderEaten(); if (pr) return renderProps(); if (lb) return renderLibro();
   const L = applyFilters(S.ric, false); const f = S.rf || {}; const nc = S.ric.filter(r => !r.tipo).length;
   $('#rlist').innerHTML = (f.tipo && nc && gkey() ? `<li class="pcl"><button class="lnk" data-act="rclass">${nc === 1 ? '1 ricetta non ha' : nc + ' ricette non hanno'} il tipo: classificale con Gemini</button></li>` : '') + (L.length ? L.map(({ r, m }) => `<li class="rc"><button data-act="ropen" data-id="${r.id}"><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? esc(r.tempo) + ' min' : '', esc(r.porz || 4) + ' porzioni', esc(COURSE_L[tipoOf(r)] || ''), isVeg(r) ? 'vegetariana' : '', r.fonte ? esc(r.fonte) : ''].filter(Boolean).join(' · ')}</span><span class="bar"><i style="width:${m.tot ? Math.round(m.ok / m.tot * 100) : 100}%"></i></span><span class="mt">${m.miss.length ? `Hai ${m.ok} ingredienti su ${m.tot}. Mancano: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto per farla'}</span></button></li>`).join('')
-    : `<li class="empty">${S.ric.length ? 'Nessuna ricetta con questi filtri.' : 'Nessuna ricetta ancora. Tocca + per scriverne una, importarla o trovarne su GialloZafferano e Cucchiaio d\'Argento.'}</li>`)
+    : `<li class="empty">${S.ric.length ? (rfState().mode === 'casa' ? 'Con quello che hai in casa non ci sono ricette di questo tipo.' : 'Nessuna ricetta con questi filtri.') + '<br><button class="bg" data-act="rfreset" style="margin-top:10px">Mostra tutte</button>' : 'Nessuna ricetta ancora. Tocca + per scriverne una, importarla o trovarne su GialloZafferano e Cucchiaio d\'Argento.'}</li>`)
 }
 
 const AISLE = ['verdura', 'frutta', 'carbo', 'proteine', 'latticini', 'condimenti', 'dolci', 'bevande', 'altro'];
@@ -1210,7 +1210,7 @@ const NUMW = { un: 1, uno: 1, una: 1, due: 2, tre: 3, quattro: 4, cinque: 5, sei
 const UMULT = { etto: ['g', 100], etti: ['g', 100], hg: ['g', 100], cl: ['ml', 10], dl: ['ml', 100], chilo: ['kg', 1], chili: ['kg', 1], chilogrammi: ['kg', 1], grammi: ['g', 1], grammo: ['g', 1], millilitri: ['ml', 1], dozzina: ['pz', 12], dozzine: ['pz', 12], paio: ['pz', 2] };
 // "2 l latte", "mezzo chilo di pane", "un litro e mezzo di latte", "pane 500 g", "uova x6", "due vasetti di marmellata"
 function parseLine(s) {
-  s = String(s).trim().replace(/^[-*•]\s*/, '').replace(/[’`]/g, "'"); if (!s) return null;
+  s = String(s).trim().replace(/^[-*•]\s*/, '').replace(/[’`]/g, "'").replace(/^(\d+)?\s*([½¼¾⅓⅔])/, (m, a, f) => String((+a || 0) + { '½': .5, '¼': .25, '¾': .75, '⅓': .33, '⅔': .67 }[f]) + ' ').replace(/^(\d+)\/(\d+)\s/, (m, a, b) => String(Math.round(a / b * 100) / 100) + ' ').replace(/\s+/g, ' ').trim(); if (!s) return null;
   if (/\s*q\.?\s?b\.?$/i.test(s)) return { n: s.replace(/\s*q\.?\s?b\.?$/i, '').trim(), q: null, u: 'qb', ux: true };
   let w = s.split(/\s+/), q = null, u = null, ux = false;
   const numOf = x => { const y = (x || '').toLowerCase(); if (NUMW[y] != null) return NUMW[y]; return /^\d+([.,]\d+)?$/.test(y) ? parseFloat(y.replace(',', '.')) : null };
@@ -1644,7 +1644,7 @@ const TIPO_RX = [
 ];
 const TIPO_FONTE = [[/buffet/i, 'antipasto'], [/panini/i, 'unico'], [/insalate di riso/i, 'primo'], [/la pasta/i, 'primo']];
 const tipoOf = r => { if (r.tipo !== undefined && r.tipo !== null && (r.tipo || r.tipoSet)) return r.tipo; const n = norm(r.name || ''); const f = TIPO_RX.find(([, rx]) => rx.test(n)); if (f) return f[0]; const t = (r.tags || []).map(norm).find(t => TIPI.some(([k]) => k === t)); if (t) return t; const d = TIPO_FONTE.find(([rx]) => rx.test(r.fonte || '')); return d ? d[1] : '' };
-const MEATFISH = /\b(carne|manzo|vitell|maial|pollo|tacchin|agnell|coniglio|salsicc|prosciutt|pancett|guancial|speck|salam|mortadell|bresaol|wurstel|ragù|ragu|macinat|bistecc|fegat|anatra|cotechin|zampone|lardo|nduja|pesce|tonno|salmon|merluzz|baccal|gamber|cozz|vongol|tellin|cannolicch|ostric|canocch|cicale di mare|calamar|seppi|polp|acciug|alic|sgombr|branzin|orata|trot|sogliol|scampi|aragost|granchi|surimi|bottarg|sarde|sardin|triglie|anguill|lumach|bacon|cotechin|lonza|coppa|wurstel|pollo|gallina|brodo di (carne|pollo|manzo))/;
+const MEATFISH = /\b(carne|manzo|vitell|maial|pollo|tacchin|agnell|coniglio|salsicc|prosciutt|pancett|guancial|speck|salam|mortadell|bresaol|wurstel|ragù|ragu|macinat|bistecc|fegat|anatra|cotechin|zampone|lardo|nduja|pesce|tonno|salmon|merluzz|baccal|gamber|cozz|vongol|tellin|affettat|salumi|cannolicch|ostric|canocch|cicale di mare|calamar|seppi|polp|acciug|alic|sgombr|branzin|orata|trot|sogliol|scampi|aragost|granchi|surimi|bottarg|sarde|sardin|triglie|anguill|lumach|bacon|cotechin|lonza|coppa|wurstel|pollo|gallina|brodo di (carne|pollo|manzo))/;
 
 const isVeg = r => r.veg != null ? !!r.veg : !MEATFISH.test(norm([r.name, ...(r.ingr || []).map(i => i.n)].join(' ')));
 const fastOf = r => +r.tempo > 0 && +r.tempo <= 30;
@@ -1723,30 +1723,38 @@ function askBox(el, key, getR, opts = {}) {
 }
 
 /* elenco ricette e proposte: filtri e ordinamento */
-const SORTS = [['casa', 'cosa avete'], ['tempo', 'più veloci'], ['nome', 'nome'], ['recenti', 'più recenti']];
+const MODES = [['tutte', 'Tutte'], ['veloci', 'Le più veloci'], ['casa', 'Con quello che ho in casa'], ['veg', 'Vegetariane'], ['recenti', 'Aggiunte di recente'], ['nome', 'In ordine alfabetico']];
+const COURSE_P = { antipasto: 'Antipasti', primo: 'Primi', secondo: 'Secondi', contorno: 'Contorni', unico: 'Piatti unici', dolce: 'Dolci', altro: 'Altro' };
+function rfState() { const f = S.rf || (S.rf = {}); if (!f.mode) f.mode = 'tutte'; return f }
 function filterBar(prop) {
-  const f = S.rf || (S.rf = { tipo: '', fast: false, veg: false, can: false, fonte: '', sort: 'casa' });
-  const c = (act, v, on, l) => `<button class="chip${on ? ' on' : ''}" data-act="${act}" data-v="${v}">${l}</button>`;
-  const act = f.tipo || f.fast || f.veg || f.can || f.fonte || S.rq;
-  return `<div class="fbar">${act ? '<button class="chip rst" data-act="rfreset">✕ Azzera filtri</button>' : ''}${c('rfs', '', false, 'Ordina: ' + (SORTS.find(s => s[0] === f.sort) || SORTS[0])[1] + ' ▾')}${c('rft', 'can', f.can, 'Si può fare')}${c('rft', 'fast', f.fast, 'Veloci')}${c('rft', 'veg', f.veg, 'Vegetariane')}${TIPI.map(([k, l]) => c('rftipo', k, f.tipo === k, l)).join('')}${(prop === 'libro' ? [...new Set(S.libro.map(r => r.fonte).filter(Boolean))].slice(0, 14).map(x => [x, x.length > 22 ? x.slice(0, 20) + '…' : x]) : prop ? [['GialloZafferano', 'GialloZafferano'], ['Cucchiaio d\'Argento', 'Cucchiaio'], ['gemini', 'Gemini']] : []).map(([k, l]) => c('rffonte', esc(k), f.fonte === k, esc(l))).join('')}</div>`
+  const f = rfState(); const src = prop === 'libro' ? S.libro : prop ? PROPS : S.ric;
+  if (prop === 'libro' && f.fonte && !S.libro.some(r => r.fonte === f.fonte)) f.fonte = '';
+  const q = norm(S.rq || ''); const base = src.filter(r => (!f.fonte || (f.fonte === 'gemini' && prop !== 'libro' ? !r.fonte : r.fonte === f.fonte)) && (!q || norm(r.name).includes(q) || (r.ingr || []).some(i => norm(i.n).includes(q))));
+  const cnt = {}; base.forEach(r => { const t = tipoOf(r) || 'altro'; cnt[t] = (cnt[t] || 0) + 1 });
+  if (f.tipo && !cnt[f.tipo]) f.tipo = '';
+  const tabs = [['', 'Tutti', base.length], ...Object.keys(COURSE_P).filter(k => cnt[k]).map(k => [k, COURSE_P[k], cnt[k]])];
+  const fonti = prop === 'libro' ? [...new Set(S.libro.map(r => r.fonte).filter(Boolean))] : prop ? ['GialloZafferano', 'Cucchiaio d\'Argento', 'gemini'] : [];
+  return `<div class="ctabs">${tabs.map(([k, l, n]) => `<button class="${(f.tipo || '') === k ? 'on' : ''}" data-act="rftipo" data-v="${k}">${l}<small>${n}</small></button>`).join('')}</div>
+  <div class="fsel"><label class="sel"><span>Mostra</span><select id="rmode">${MODES.map(([k, l]) => `<option value="${k}"${f.mode === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>${fonti.length > 1 ? `<label class="sel"><span>Da</span><select id="rfonte"><option value="">tutti i libri</option>${fonti.map(x => `<option value="${esc(x)}"${f.fonte === x ? ' selected' : ''}>${esc(x === 'gemini' ? 'Gemini' : x)}</option>`).join('')}</select></label>` : ''}</div>`
 }
 function applyFilters(L, prop) {
-  const f = S.rf || {}; const q = norm(S.rq || '');
-  if (prop === 'libro' && f.fonte && !S.libro.some(r => r.fonte === f.fonte)) f.fonte = '';
-  let out = L.map(r => ({ r, m: match(r) })).filter(({ r, m }) => (!q || norm(r.name).includes(q) || (r.ingr || []).some(i => norm(i.n).includes(q)) || norm((r.tags || []).join(' ')).includes(q)) && (!f.can || !m.miss.length) && (!f.fast || fastOf(r)) && (!f.veg || isVeg(r)) && (!f.tipo || tipoOf(r) === f.tipo) && (!prop || !f.fonte || (f.fonte === 'gemini' && prop !== 'libro' ? !r.fonte : r.fonte === f.fonte)));
-  const by = { casa: (a, b) => (a.m.miss.length - b.m.miss.length) || String(a.r.name).localeCompare(b.r.name, 'it'), tempo: (a, b) => (+a.r.tempo || 999) - (+b.r.tempo || 999), nome: (a, b) => String(a.r.name).localeCompare(b.r.name, 'it'), recenti: (a, b) => (b.r.ts || 0) - (a.r.ts || 0) }[f.sort || 'casa'];
+  const f = rfState(); const q = norm(S.rq || '');
+  let out = L.filter(r => (!q || norm(r.name).includes(q) || (r.ingr || []).some(i => norm(i.n).includes(q)) || norm((r.tags || []).join(' ')).includes(q)) && (!f.tipo || (tipoOf(r) || 'altro') === f.tipo) && (!prop || !f.fonte || (f.fonte === 'gemini' && prop !== 'libro' ? !r.fonte : r.fonte === f.fonte)) && (f.mode !== 'veg' || isVeg(r))).map(r => ({ r, m: match(r) }));
+  if (f.mode === 'casa') out = out.filter(x => x.m.miss.length <= 2);
+  const name = (a, b) => String(a.r.name).localeCompare(b.r.name, 'it');
+  const by = { veloci: (a, b) => ((+a.r.tempo || 9999) - (+b.r.tempo || 9999)) || name(a, b), casa: (a, b) => (a.m.miss.length - b.m.miss.length) || name(a, b), recenti: (a, b) => (b.r.ts || 0) - (a.r.ts || 0), nome: name }[f.mode] || ((a, b) => (a.m.miss.length - b.m.miss.length) || name(a, b));
   return out.sort(by)
 }
 function renderProps() {
   const L = applyFilters(PROPS, true);
   $('#rlist').innerHTML = (PROPS.length ? '' : '<li class="empty">Qui trovi tutte le ricette che ti ha proposto "Trova ricette", anche dopo aver chiuso. Tocca + e poi "Trova ricette".</li>') + L.map(({ r, m }) => `<li class="rc prc"><button data-act="popen" data-pid="${esc(r.pid)}"><span class="ih"><span class="src ${r.fonte ? (/cucchiaio/i.test(r.fonte) ? 'cu' : 'gz') : 'gm'}">${r.fonte ? esc(r.fonte) : 'Gemini'}</span>${propSaved(r) ? '<span class="svd">✓ salvata</span>' : ''}</span><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? r.tempo + ' min' : '', COURSE_L[tipoOf(r)] || '', isVeg(r) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</span><span class="mt">${m.miss.length ? `Mancano ${m.miss.length}: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto in casa'}</span></button><button class="x" data-act="pdel" data-pid="${esc(r.pid)}" aria-label="Togli">×</button></li>`).join('')
-    + (PROPS.length && !L.length ? '<li class="empty">Nessuna proposta con questi filtri.</li>' : '') + (PROPS.length ? '<li class="pcl"><button class="lnk" data-act="pclear">Svuota le proposte</button></li>' : '')
+    + (PROPS.length && !L.length ? '<li class="empty">Nessuna proposta con questi filtri.<br><button class="bg" data-act="rfreset" style="margin-top:10px">Mostra tutte</button></li>' : '') + (PROPS.length ? '<li class="pcl"><button class="lnk" data-act="pclear">Svuota le proposte</button></li>' : '')
 }
 function renderLibro() {
   const L0 = applyFilters(S.libro, 'libro'); const L = L0.slice(0, S.lmax || 60); const nc = S.libro.filter(r => !tipoOf(r)).length;
   $('#rlist').innerHTML = ((S.rf || {}).tipo && nc && gkey() ? `<li class="pcl"><button class="lnk" data-act="lclass">${nc === 1 ? '1 ricetta del libro non ha' : nc + ' ricette del libro non hanno'} il tipo di piatto: classificale con Gemini</button></li>` : '') + (S.libro.length ? '' : '<li class="empty"><b>Il Libro mastro è vuoto.</b><br>Qui finiscono le ricette importate dai PDF o dai file: le sfogli, Gemini te le può proporre, e tra le tue Ricette metti solo quelle che ti piacciono. Tocca + e poi "Tante ricette insieme".</li>')
     + L.map(({ r, m }) => `<li class="rc prc"><button data-act="lopen" data-id="${esc(r.id)}"><span class="ih">${r.fonte ? `<span class="src lb">${esc(r.fonte)}</span>` : ''}${r.rid && S.ric.some(x => x.id === r.rid) ? '<span class="svd">✓ tra le ricette</span>' : ''}</span><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? r.tempo + ' min' : '', COURSE_L[tipoOf(r)] || '', isVeg(r) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</span><span class="mt">${m.miss.length ? `Mancano ${m.miss.length}: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto in casa'}</span></button></li>`).join('')
-    + (S.libro.length && !L.length ? '<li class="empty">Nessuna ricetta con questi filtri.<br><button class="bg" data-act="rfreset" style="margin-top:10px">Azzera filtri</button></li>' : '') + (L0.length > L.length ? `<li class="pcl"><button class="bg wide" data-act="lmore">Mostra altre (${L0.length - L.length})</button></li>` : '')
+    + (S.libro.length && !L.length ? '<li class="empty">' + (rfState().mode === 'casa' ? 'Con quello che hai in casa non ci sono ricette di questo tipo (al massimo 2 ingredienti da comprare).' : 'Nessuna ricetta con questi filtri.') + '<br><button class="bg" data-act="rfreset" style="margin-top:10px">Mostra tutte</button></li>' : '') + (L0.length > L.length ? `<li class="pcl"><button class="bg wide" data-act="lmore">Mostra altre (${L0.length - L.length})</button></li>` : '')
 }
 async function classifyLibro() {
   const L = S.libro.filter(r => !tipoOf(r)); if (!L.length || !gkey()) return; toast(`Classifico ${L.length} ricette…`); let k = 0;
@@ -1829,9 +1837,8 @@ document.addEventListener('click', e => {
   else if (a === 'rate') rateDish(ds.k, +ds.v); else if (a === 'eatadd') eatAdd(ds.k); else if (a === 'rplus') ricSheet(); else if (a === 'rimp') importModal(); else if (a === 'rview') { S.rview = ds.v; S.lmax = 60; if (S.rf) S.rf.fonte = ''; render() }
   else if (a === 'lclear') libroClear(ds.f || ''); else if (a === 'lmore') { S.lmax = (S.lmax || 60) + 60; render() } else if (a === 'popen') propModal(ds.pid); else if (a === 'lopen') propModal(ds.id, null, 'libro'); else if (a === 'pdel') { const old = PROPS.slice(); PROPS = PROPS.filter(x => x.pid !== ds.pid); propSave(); render(); toast('Proposta tolta', () => { PROPS = old; propSave(); render() }) }
   else if (a === 'pclear') { const old = PROPS.slice(); PROPS = []; propSave(); render(); toast('Proposte svuotate', () => { PROPS = old; propSave(); render() }) }
-  else if (a === 'rfs') { const f = S.rf; const i = SORTS.findIndex(x => x[0] === f.sort); f.sort = SORTS[(i + 1) % SORTS.length][0]; render() }
-  else if (a === 'rft') { S.rf[ds.v] = !S.rf[ds.v]; render() } else if (a === 'rftipo') { S.rf.tipo = S.rf.tipo === ds.v ? '' : ds.v; render() } else if (a === 'rffonte') { S.rf.fonte = S.rf.fonte === ds.v ? '' : ds.v; render() }
-  else if (a === 'rclass') classifyRics(); else if (a === 'lclass') classifyLibro(); else if (a === 'rfreset') { S.rf = { sort: (S.rf || {}).sort || 'casa' }; S.rq = ''; const q = $('#rq'); if (q) q.value = ''; S.lmax = 60; render() } else if (a === 'rfile') ricFileModal();
+  else if (a === 'rftipo') { rfState().tipo = ds.v; S.lmax = 60; render() }
+  else if (a === 'rclass') classifyRics(); else if (a === 'lclass') classifyLibro(); else if (a === 'rfreset') { S.rf = { mode: 'tutte' }; S.rq = ''; const q = $('#rq'); if (q) q.value = ''; S.lmax = 60; render() } else if (a === 'rfile') ricFileModal();
   else if (a === 'briefx') { LS.set('brief', today()); render() }
   else if (a === 'spchi') { const o = ['', ...members().map(m => m.id)]; const nx = o[(o.indexOf(S.spesaChi || '') + 1) % o.length]; S.spesaChi = nx; render(); if (F) F.fs.setDoc(famRef(), { spesaChi: nx || F.fs.deleteField() }, { merge: true }).catch(werr); const nm = (members().find(m => m.id === nx) || {}).name; if (nm) logA(`ha segnato che ${nm} va a fare la spesa`) } else if (a === 'who') whoModal(); else if (a === 'settings') settingsModal();
   else if (a === 'wk') { S.week += +ds.v; S.sel = null; subWeek(); render() } else if (a === 'wk0') { S.week = 0; S.sel = null; subWeek(); render() } else if (a === 'sel') { S.sel = ds.d; render() } else if (a === 'pick') togglePick(ds.d, ds.meal, +ds.i); else if (a === 'cook') cookMeal(ds.d, ds.meal); else if (a === 'leftover') leftoverModal(ds.d, ds.meal); else if (a === 'spese') speseModal(); else if (a === 'uncook') undoCook(ds.d, ds.meal); else if (a === 'dplus') addSheet(); else if (a === 'fold') { const i = S.fold.indexOf(ds.v); if (i >= 0) S.fold.splice(i, 1); else S.fold.push(ds.v); LS.set('fold', S.fold); render() } else if (a === 'ddel') delU('dispensa', ds.id); else if (a === 'migok' || a === 'migno') { const L = S.disp.filter(d => !isLv(d) && !d.trackSet && !zero(d) && prof(d.name).lv); L.forEach(d => save('dispensa', d.id, a === 'migok' ? { ...d, track: 'livello', trackSet: true, unit: LV_UNITS.includes(d.unit) && d.unit !== 'pz' ? d.unit : 'conf', qty: d.qty || 1, lvl: 'pieno' } : { ...d, trackSet: true })); if (a === 'migok') toast(`${L.length} prodotti ora si contano per livello`) }
@@ -1853,6 +1860,7 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => { const id = e.target.dataset && e.target.dataset.sp; if (id) { const x = S.spesa.find(s => s.id === id); if (x) save('spesa', id, { ...x, done: e.target.checked }) } });
 $('#q').addEventListener('input', e => { S.q = e.target.value; renderDisp() });
 $('#rq').addEventListener('input', e => { S.rq = e.target.value; renderRic() });
+document.addEventListener('change', e => { const id = e.target.id; if (id === 'rmode') { rfState().mode = e.target.value; S.lmax = 60; renderRic() } else if (id === 'rfonte') { rfState().fonte = e.target.value; S.lmax = 60; renderRic() } });
 $('#spmic').innerHTML = micHtml(); wireMic($('#spadd'), $('#spin'));
 $('#spadd').addEventListener('submit', e => { e.preventDefault(); const L = parseMany($('#spin').value); if (!L.length) return; addToSpesa(L.map(p => ({ name: p.n, qty: p.q, unit: p.ux && p.u !== 'qb' ? p.u : spesaUnit(p.n) }))); $('#spin').value = ''; if (L.length > 1) toast(`${L.length} cose in lista`) });
 
