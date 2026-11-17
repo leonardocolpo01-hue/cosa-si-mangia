@@ -470,3 +470,11 @@ details.more .segc{margin:4px 0}
 #ask .chips{margin:4px 0 6px}
 .rc.prc>button.x{width:auto;padding:4px 10px;box-shadow:none;background:none;display:block;font-size:22px;color:var(--mut)}.rc.prc>button:first-child{padding-right:40px}
 .warnbox{background:var(--warnsoft);color:var(--warn);padding:10px 12px;border-radius:12px;font-weight:600}
+.bulk{padding:4px 0;max-height:55vh;overflow:auto}
+.bulk .bk{display:flex;gap:12px;align-items:flex-start;padding:10px 14px;border-top:1px solid var(--line);cursor:pointer}
+.bulk .bk:first-child{border-top:0}
+.bulk .bk input{width:22px;height:22px;margin-top:2px;accent-color:var(--tom);flex:none}
+.bulk .bk b{display:block}.bulk .bk small{color:var(--mut)}
+.src.lb{background:light-dark(#efe7fb,#2a2140);color:light-dark(#5b3a9a,#c9b2ff)}
+#rseg button{font-size:13px;padding:0 4px}
+#rseg small{font-size:11px}

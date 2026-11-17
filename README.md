@@ -70,3 +70,20 @@ Ogni famiglia ha un codice casuale di 18 caratteri. Chi ha il link di invito pu�
 - **Codici a barre** letti dal vivo, uno dopo l'altro.
 
 La chiave Gemini non va mai messa nei file del repository: si inserisce solo dentro l'app, in Impostazioni.
+
+## Ricette dai siti con Tavily (facoltativo)
+
+In Impostazioni → "Ricette dai siti" si incolla una chiave gratuita di [Tavily](https://app.tavily.com) (1.000 ricerche al mese). L'app cerca su giallozafferano.it e cucchiaio.it, poi Gemini legge le pagine trovate ed estrae ingredienti e procedimento.
+
+Se il telefono non riesce a collegarsi a Tavily (blocco del browser), si può creare un Cloudflare Worker gratuito con questo codice e incollarne l'indirizzo in "Indirizzo intermedio":
+
+```js
+export default {
+  async fetch(req) {
+    const cors = { 'Access-Control-Allow-Origin': 'https://leonardocolpo01-hue.github.io', 'Access-Control-Allow-Headers': 'authorization, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
+    if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
+    const r = await fetch('https://api.tavily.com/search', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: req.headers.get('Authorization') || '' }, body: await req.text() });
+    return new Response(r.body, { status: r.status, headers: { ...cors, 'Content-Type': 'application/json' } });
+  }
+};
+```

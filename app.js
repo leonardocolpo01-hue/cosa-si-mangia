@@ -47,7 +47,7 @@ function guessCat(name) {
 }
 const catOf = d => CAT_L[d.cat] ? d.cat : guessCat(d.name);
 
-const S = { prof: {}, piatti: {}, gusti: {}, rview: 'ricette', members: null, pres: {}, menu: {}, disp: [], ric: [], spesa: [], week: 0, me: LS.get('me', null), tab: TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'settimana', luogo: 'tutto', stats: {}, abit: {}, rico: {}, spese: [], sel: null, fold: LS.get('fold', []), q: '', rq: '', onlyCan: false, note: '', phase: 'start', err: '', cfg: null, fam: '', asked: false };
+const S = { prof: {}, piatti: {}, gusti: {}, rview: 'ricette', members: null, pres: {}, menu: {}, disp: [], ric: [], libro: [], spesa: [], week: 0, me: LS.get('me', null), tab: TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'settimana', luogo: 'tutto', stats: {}, abit: {}, rico: {}, spese: [], sel: null, fold: LS.get('fold', []), q: '', rq: '', onlyCan: false, note: '', phase: 'start', err: '', cfg: null, fam: '', asked: false };
 let F = null; // { fs, db, fam }
 let FBX = null; // { app, fs, db, authMod, auth }
 
@@ -230,6 +230,15 @@ function togglePick(k, mk, i) {
   if (F) F.fs.setDoc(dref('menu', k), { date: k, pk: { [mk]: patch } }, { merge: true }).catch(werr)
 }
 const gkey = () => LS.get('gkey', '') || S.famKey || '';
+const tkey = () => LS.get('tkey', '') || S.famTkey || '';
+const RECIPE_URL = /^https:\/\/(ricette\.giallozafferano\.it\/[^/?#]+\.html|(www\.)?cucchiaio\.it\/ricetta\/[^?#]+)/i;
+async function tavily(query, n) {
+  const url = (LS.get('tproxy', '') || '').trim() || 'https://api.tavily.com/search';
+  let r; try { r = await gfetch(url, null, 25000, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tkey() }, body: JSON.stringify({ query, include_domains: ['giallozafferano.it', 'cucchiaio.it'], max_results: Math.min(20, n), search_depth: 'basic', include_raw_content: 'text', country: 'italy' }) }) }
+  catch (e) { const x = new Error(e.timeout ? 'Tavily non risponde' : 'il telefono non riesce a parlare con Tavily (probabilmente serve l\'indirizzo intermedio)'); x.net = true; throw x }
+  if (!r.ok) { let m = ''; try { const j = await r.json(); m = (j.detail && (j.detail.error || j.detail)) || j.error || '' } catch (e) { } throw new Error(r.status === 401 ? 'chiave Tavily non valida' : [429, 432, 433].includes(r.status) ? 'ricerche Tavily del mese finite' : 'Tavily ' + r.status + (m ? ': ' + String(m).slice(0, 100) : '')) }
+  const j = await r.json(); return (j.results || []).map(x => ({ url: String(x.url || ''), title: String(x.title || ''), text: String(x.raw_content || x.content || '') }))
+}
 const eurF = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }); const eur = v => eurF.format(v || 0);
 
 /* ---------- Firebase ---------- */
@@ -259,7 +268,7 @@ function werr(e) { console.warn(e); if (e && e.code === 'resource-exhausted') to
 function dberr(e) { console.warn(e); S.note = fbMsg(e); render() }
 
 /* ---------- writes ---------- */
-const KEY = { dispensa: 'disp', ricette: 'ric', spesa: 'spesa', spese: 'spese' };
+const KEY = { dispensa: 'disp', ricette: 'ric', spesa: 'spesa', spese: 'spese', libro: 'libro' };
 function save(c, id, data) { const arr = S[KEY[c]]; id = id || rid(); const v = { ...data }; delete v.id; const i = arr.findIndex(x => x.id === id); if (i >= 0) arr[i] = { id, ...v }; else arr.push({ id, ...v }); render(); if (F) F.fs.setDoc(dref(c, id), v).catch(werr); return id }
 function del(c, id) { S[KEY[c]] = S[KEY[c]].filter(x => x.id !== id); render(); if (F) F.fs.deleteDoc(dref(c, id)).catch(werr) }
 function setPres(date, mid, patch) { const k = date + '_' + mid; S.pres[k] = { ...(S.pres[k] || {}), ...patch, date, mid }; render(); if (F) F.fs.setDoc(dref('presenze', k), { ...patch, date, mid }, { merge: true }).catch(werr) }
@@ -464,10 +473,10 @@ function renderDisp() {
 }
 
 function renderRic() {
-  const v = S.rview || 'ricette'; const ev = v === 'mangiati', pr = v === 'proposte';
-  $('#rseg').innerHTML = [['ricette', 'Ricette', S.ric.length], ['proposte', 'Proposte', PROPS.length], ['mangiati', 'Già mangiati', Object.keys(S.piatti || {}).length]].map(([k, l, c]) => `<button class="${v === k ? 'on' : ''}" data-act="rview" data-v="${k}">${l} <small>${c}</small></button>`).join('');
-  $('#rfil').innerHTML = ev ? '' : filterBar(pr); $('#rq').placeholder = ev ? 'Cerca un piatto…' : 'Cerca per nome o ingrediente…';
-  if (ev) return renderEaten(); if (pr) return renderProps();
+  const v = S.rview || 'ricette'; const ev = v === 'mangiati', pr = v === 'proposte', lb = v === 'libro';
+  $('#rseg').innerHTML = [['ricette', 'Ricette', S.ric.length], ['libro', 'Libro', S.libro.length], ['proposte', 'Proposte', PROPS.length], ['mangiati', 'Mangiati', Object.keys(S.piatti || {}).length]].map(([k, l, c]) => `<button class="${v === k ? 'on' : ''}" data-act="rview" data-v="${k}">${l} <small>${c}</small></button>`).join('');
+  $('#rfil').innerHTML = ev ? '' : filterBar(lb ? 'libro' : pr); $('#rq').placeholder = ev ? 'Cerca un piatto…' : 'Cerca per nome o ingrediente…';
+  if (ev) return renderEaten(); if (pr) return renderProps(); if (lb) return renderLibro();
   const L = applyFilters(S.ric, false); const f = S.rf || {}; const nc = S.ric.filter(r => !r.tipo).length;
   $('#rlist').innerHTML = (f.tipo && nc && gkey() ? `<li class="pcl"><button class="lnk" data-act="rclass">${nc === 1 ? '1 ricetta non ha' : nc + ' ricette non hanno'} il tipo: classificale con Gemini</button></li>` : '') + (L.length ? L.map(({ r, m }) => `<li class="rc"><button data-act="ropen" data-id="${r.id}"><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? esc(r.tempo) + ' min' : '', esc(r.porz || 4) + ' porzioni', esc(COURSE_L[tipoOf(r)] || ''), isVeg(r) ? 'vegetariana' : '', r.fonte ? esc(r.fonte) : ''].filter(Boolean).join(' · ')}</span><span class="bar"><i style="width:${m.tot ? Math.round(m.ok / m.tot * 100) : 100}%"></i></span><span class="mt">${m.miss.length ? `Hai ${m.ok} ingredienti su ${m.tot}. Mancano: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto per farla'}</span></button></li>`).join('')
     : `<li class="empty">${S.ric.length ? 'Nessuna ricetta con questi filtri.' : 'Nessuna ricetta ancora. Tocca + per scriverne una, importarla o trovarne su GialloZafferano e Cucchiaio d\'Argento.'}</li>`)
@@ -597,10 +606,10 @@ async function modelList(fresh) {
   if (!list.length) throw new Error('nessun modello Gemini disponibile per questa chiave');
   LS.set('gauto2', { list, t: Date.now(), old: cand.filter(x => x.v < 3).map(x => x.n).slice(0, 3) }); return list
 }
-async function gfetch(url, body, ms) {
+async function gfetch(url, body, ms, init) {
   const ac = new AbortController(); const t = setTimeout(() => ac.abort(), ms);
-  try { return await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ac.signal } : { signal: ac.signal }) }
-  catch (e) { throw new Error(e.name === 'AbortError' ? 'Gemini non risponde (tempo scaduto)' : 'nessuna connessione') }
+  try { return await fetch(url, init ? { ...init, signal: ac.signal } : body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ac.signal } : { signal: ac.signal }) }
+  catch (e) { const x = new Error(e.name === 'AbortError' ? 'Gemini non risponde (tempo scaduto)' : 'nessuna connessione'); x.timeout = e.name === 'AbortError'; throw x }
   finally { clearTimeout(t) }
 }
 async function gemini(parts, onModel, opts = {}) {
@@ -615,8 +624,8 @@ async function gemini(parts, onModel, opts = {}) {
     const v = parseFloat((model.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
     if (v >= 3 && !/lite/.test(model)) gc.thinkingConfig = { thinkingLevel: 'minimal' }; // risposte rapide, senza "ragionamento" lungo
     try {
-      r = await gfetch(url, body(), opts.tools ? 45000 : 30000);
-      if (r.status === 400 && gc.thinkingConfig) { delete gc.thinkingConfig; r = await gfetch(url, body(), opts.tools ? 45000 : 30000) }
+      r = await gfetch(url, body(), opts.ms || (opts.tools ? 45000 : 30000));
+      if (r.status === 400 && gc.thinkingConfig) { delete gc.thinkingConfig; r = await gfetch(url, body(), opts.ms || (opts.tools ? 45000 : 30000)) }
     } catch (e) { last = e; continue }
     if (r.status === 404 && !refreshed && !isCustom()) { refreshed = true; LS.del('gauto2'); list = await modelList(true); i = -1; continue }
     if ([429, 500, 503, 504].includes(r.status) || (r.status === 400 && opts.tools)) { last = await gErr(r); if (last.quota) quota = last; continue }
@@ -644,8 +653,8 @@ function aiModal() {
   const n0 = heads(today(), 's') || 4;
   const st = { src: LS.get('aisrc') || 'siti', mode: LS.get('aimode') || 'libero', cnt: +LS.get('aicnt') || 6, chips: new Set(AI_RES.chips), shown: [], all: AI_RES.all, busy: false };
   const seg = (id, opts, cur) => `<div class="segc${opts.length > 2 ? ' seg3' : ''}" id="${id}">${opts.map(([k, l]) => `<button type="button" data-k="${k}" class="${String(k) === String(cur) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-  modal(`<h2>Trova ricette</h2><p class="sub">Ricette vere dai siti di cucina, oppure idee inventate da Gemini. Ogni volta che cerchi escono ricette nuove.</p><form id="f">
-  <label>Da dove?</label>${seg('src', [['siti', 'GialloZafferano e Cucchiaio d\'Argento'], ['gemini', 'Inventate da Gemini']], st.src)}
+  modal(`<h2>Trova ricette</h2><p class="sub">Ricette vere da GialloZafferano e Cucchiaio d'Argento, dal vostro Libro mastro, oppure idee inventate da Gemini. Ogni volta che cerchi escono ricette nuove.</p><form id="f">
+  <label>Da dove?</label>${seg('src', [['siti', 'Siti di cucina'], ['libro', 'Libro mastro'], ['gemini', 'Inventate']], st.src)}<p class="hint" id="srch"></p>
   <label>Cosa cerchi? <small>facoltativo</small><input name="v" placeholder="Es. lasagne, qualcosa con la zucca, cena veloce" autocomplete="off"></label>
   <div class="chips" id="ch">${AI_CHIPS.map(c => `<button type="button" class="chip" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>
   <label>Con quali ingredienti?</label>${seg('mode', [['libero', 'Qualsiasi'], ['misto', 'Quello che c\'è + poco da comprare'], ['solo', 'Solo quello che c\'è']], st.mode)}
@@ -656,7 +665,7 @@ function aiModal() {
     const MH = { libero: 'Ricette di ogni tipo, senza guardare cosa c\'è in casa. Quello che manca lo metti in spesa con un tocco.', misto: 'Soprattutto con quello che avete, al massimo 2 o 3 cose da comprare.', solo: 'Niente da comprare: solo dispensa e frigo, più sale, pepe e olio.' };
     const segWire = (id, key, ls, after) => m.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => { st[key] = id === 'cnt' ? +b.dataset.k : b.dataset.k; LS.set(ls, st[key]); m.querySelectorAll(`#${id} button`).forEach(x => x.classList.toggle('on', x === b)); after && after() });
     const hint = () => { q('#mh').textContent = MH[st.mode] };
-    segWire('src', 'src', 'aisrc'); segWire('mode', 'mode', 'aimode', hint); segWire('cnt', 'cnt', 'aicnt'); hint();
+    const SRCH = { siti: 'GialloZafferano e Cucchiaio d\'Argento.', libro: () => S.libro.length ? `Tra le ${S.libro.length} ricette dei vostri PDF e quaderni.` : 'Il Libro mastro è vuoto: importa un PDF da "Tante ricette insieme".', gemini: 'Ricette inventate da Gemini.' }; const srch = () => { const v = SRCH[st.src]; q('#srch').textContent = typeof v === 'function' ? v() : v }; segWire('src', 'src', 'aisrc', srch); srch(); segWire('mode', 'mode', 'aimode', hint); segWire('cnt', 'cnt', 'aicnt'); hint();
     m.querySelectorAll('#ch .chip').forEach(b => b.onclick = () => { const c = b.dataset.c; st.chips.has(c) ? st.chips.delete(c) : st.chips.add(c); b.classList.toggle('on', st.chips.has(c)) });
 
     const pantryTxt = full => S.disp.filter(d => !zero(d)).map(d => full ? `- ${d.name}${d.qty != null && !isLv(d) ? ` (${fmtQ(d.qty, d.unit)})` : ''}${d.scad ? `, scade il ${d.scad}` : ''}` : d.name).join(full ? '\n' : ', ') || '(niente)';
@@ -673,10 +682,50 @@ function aiModal() {
       return p
     };
     const FMT = '{"ricette":[{"nome":"...","fonte":"GialloZafferano o Cucchiaio d\'Argento o vuoto","url":"https://... o vuoto","porzioni":4,"tempo":30,"ingredienti":[{"n":"nome in minuscolo","q":200,"u":"g"}],"tipo":"antipasto o primo o secondo o contorno o unico o dolce","veg":true,"perche":"una frase breve"}]} dove "u" è uno tra g, kg, ml, l, pz, cucchiai, spicchi, fette, qb e "q" è un numero o null';
+    const viaTavily = async (np, want, k, base) => {
+      const seenU = new Set([...(LS.get('aiurls', []) || []), ...st.all.map(r => r.url).filter(Boolean)]);
+      const mods = ['', 'facile', 'veloce', 'della tradizione', 'al forno', 'leggera', 'sfiziosa', 'della nonna', 'di stagione', 'economica'];
+      let q = want;
+      if (!q && st.mode !== 'libero') { const pick = [...S.disp].filter(d => !zero(d) && !STAPLES.includes(norm(d.name))).sort((a, b) => String(a.scad || '9').localeCompare(String(b.scad || '9'))).slice(0, 6); const two = shuffle(pick.slice(0, 4)).slice(0, 2).map(d => d.name); if (two.length) q = 'con ' + two.join(' e ') }
+      if (!q) q = shuffle(AI_SPUNTI)[0].replace(/^(un|una|qualcosa)\s+/i, '');
+      if (st.all.length) q += ' ' + mods[1 + Math.floor(Math.random() * (mods.length - 1))];
+      const res = (await tavily('ricetta ' + q, Math.max(10, k * 2 + 2))).filter(x => RECIPE_URL.test(x.url) && !seenU.has(x.url));
+      if (!res.length) return [];
+      const pages = res.slice(0, Math.min(12, k + 4)).map((x, i) => `### PAGINA ${i + 1}\nURL: ${x.url}\nTITOLO: ${x.title}\n${x.text.replace(/\s+/g, ' ').slice(0, 5500)}`).join('\n\n');
+      const r = await gemini([{ text: `Qui sotto ci sono pagine di ricette prese da GialloZafferano e dal Cucchiaio d'Argento.\n${base}\nTra queste pagine scegli le ${k} ricette più adatte (al massimo ${k}; salta le pagine che non contengono una ricetta). Per ognuna estrai nome, url (copialo esatto dalla pagina), fonte ("GialloZafferano" o "Cucchiaio d'Argento"), porzioni, tempo totale in minuti, ingredienti con quantità e passi del procedimento COME SONO SCRITTI NELLA PAGINA, senza inventare niente.\nRispondi SOLO con JSON in questa forma: ${FMT.replace('"perche"', '"passi":["..."],"perche"')}\n\n${pages}` }]);
+      const ok = new Set(res.map(x => x.url));
+      const R = ((r && r.ricette) || []).filter(x => x && x.nome).map(x => ({ ...x, url: ok.has(String(x.url || '').trim()) ? String(x.url).trim() : '' }));
+      LS.set('aiurls', [...R.map(x => x.url).filter(Boolean), ...(LS.get('aiurls', []) || [])].slice(0, 200));
+      return R
+    };
+    const CHT = { Primo: 'primo', Secondo: 'secondo', 'Piatto unico': 'unico', Contorno: 'contorno', Dolce: 'dolce' };
+    const pickLibro = async (k, base) => {
+      if (!S.libro.length) throw new Error('il Libro mastro è vuoto: importa prima un PDF da "Tante ricette insieme"');
+      const tipi = [...st.chips].map(c => CHT[c]).filter(Boolean);
+      let L = S.libro.filter(r => !st.all.some(o => o.lib === r.id));
+      if (tipi.length) L = L.filter(r => tipi.includes(tipoOf(r)));
+      if (st.chips.has('Vegetariano')) L = L.filter(isVeg); if (st.chips.has('Veloce')) L = L.filter(r => !r.tempo || +r.tempo <= 35); if (st.chips.has('Pesce')) L = L.filter(r => /pesce|tonno|salmon|merluzz|gamber|cozz|vongol|calamar|baccal|orata|branzin|acciug|polp|seppi/.test(norm(r.name + ' ' + (r.ingr || []).map(i => i.n).join(' '))));
+      if (st.mode === 'solo') L = L.filter(r => !match(r).miss.length);
+      const words = norm(E(q('#f'), 'v').value).split(' ').filter(w => w.length > 3 && !STOPW.includes(w));
+      if (words.length) { const hit = L.filter(r => words.some(w => norm(r.name + ' ' + (r.ingr || []).map(i => i.n).join(' ')).includes(w.slice(0, -1)))); if (hit.length) L = hit }
+      if (!L.length) return [];
+      L = shuffle(L); if (st.mode !== 'libero') L.sort((a, b) => match(a).miss.length - match(b).miss.length); L = L.slice(0, 180);
+      const wrap = (r, why) => ({ ...r, lib: r.id, pid: 'L' + r.id, why: why || '' });
+      if (L.length <= k) return L.map(r => wrap(r));
+      const list = L.map((r, i) => `${i}. ${r.name} [${COURSE_L[tipoOf(r)] || '-'}${r.tempo ? ', ' + r.tempo + ' min' : ''}] ${(r.ingr || []).slice(0, 8).map(x => x.n).join(', ')}`).join('\n');
+      const res = await gemini([{ text: `${base}\nScegli le ${k} ricette più adatte SOLO da questo elenco, che è il ricettario della famiglia (indica i numeri). Varia il più possibile.\n${list}\nRispondi SOLO con JSON: {"scelte":[{"i":0,"perche":"una frase breve"}]}` }]);
+      const seen = new Set(); return ((res && res.scelte) || []).map(x => ({ r: L[+x.i], why: x.perche })).filter(x => x.r && !seen.has(x.r.id) && seen.add(x.r.id)).slice(0, k).map(x => wrap(x.r, x.why))
+    };
     const ask = async (np, want, k) => {
       const base = buildPrompt(np, want, k);
+      if (st.src === 'libro') return pickLibro(k, base);
       if (st.src === 'gemini') { const r = await gemini([{ text: 'Sei un cuoco di casa italiano. ' + base + '\nPer ogni ricetta scrivi anche i passaggi in "passi" (lista di frasi). Rispondi SOLO con JSON in questa forma: ' + FMT.replace('"perche"', '"passi":["..."],"perche"') }]); return (r && r.ricette) || (Array.isArray(r) ? r : []) }
-      st.fb = false; const known = `Proponi ricette che sono davvero pubblicate su GialloZafferano o sul Cucchiaio d'Argento e che conosci bene: usa il nome della ricetta come compare sul sito e indica il sito in "fonte". ${base}\nRiporta porzioni e ingredienti come li indica il sito, e il tempo totale in minuti. Lascia "url" vuoto.\nRispondi SOLO con JSON in questa forma: ${FMT}`;
+      st.fb = false; st.tav = false; st.terr = '';
+      if (tkey()) {
+        try { const R = await viaTavily(np, want, k, base); if (R.length) { st.tav = true; return R } st.terr = 'Tavily non ha trovato ricette per questa richiesta' }
+        catch (e) { console.warn('tavily', e); st.terr = e.message || String(e) }
+      }
+      const known = `Proponi ricette che sono davvero pubblicate su GialloZafferano o sul Cucchiaio d'Argento e che conosci bene: usa il nome della ricetta come compare sul sito e indica il sito in "fonte". ${base}\nRiporta porzioni e ingredienti come li indica il sito, e il tempo totale in minuti. Lascia "url" vuoto.\nRispondi SOLO con JSON in questa forma: ${FMT}`;
       if (Date.now() - (LS.get('nogrd', 0) || 0) > 864e5) {
         const sp = `Cerca con Google ricette VERE pubblicate su giallozafferano.it (anche ricette.giallozafferano.it) o su cucchiaio.it. ${base}\nPer ogni ricetta trovata riporta il nome esatto della ricetta sul sito, il sito, l'indirizzo esatto della pagina (solo se lo hai visto nei risultati, altrimenti lascialo vuoto: non inventarlo), le porzioni e gli ingredienti come li indica il sito, il tempo totale in minuti.\nRispondi SOLO con JSON in questa forma: ${FMT}`;
         try {
@@ -691,15 +740,16 @@ function aiModal() {
     const toR = (x, np) => { const r = toRic(x); r.porz = +x.porzioni || np; r.why = String(x.perche || ''); r.tags = ['idea']; r.tipo = TIPI.some(([k]) => k === x.tipo) ? x.tipo : ''; if (typeof x.veg === 'boolean') r.veg = x.veg; r.pid = rid(); r.ts = Date.now();
       if (st.src === 'siti') { const u = String(x.url || '').trim(); const ok = /^https:\/\//.test(u) && siteOf(u); r.fonte = ok ? siteOf(u) : (/cucchiaio/i.test(x.fonte || '') ? 'Cucchiaio d\'Argento' : 'GialloZafferano'); r.url = ok ? u : ''; r.link = ok ? u : siteSearch(r.name, r.fonte) }
       else r.fonte = ''; return r };
-    const card = (r, j) => { const mi = match(r).miss; const tot = match(r).tot;
-      return `<div class="idea" id="pc_${esc(r.pid)}"><button class="iopen" data-open="${j}"><span class="ih"><span class="src ${r.fonte ? (/cucchiaio/i.test(r.fonte) ? 'cu' : 'gz') : 'gm'}">${r.fonte ? esc(r.fonte) : 'Idea di Gemini'}</span>${r.tempo ? `<span class="tm">${esc(r.tempo)} min</span>` : ''}</span><h4>${esc(r.name)}</h4>${r.why ? `<p class="why">${esc(r.why)}</p>` : ''}
+    const real = r => r.lib ? (S.libro.find(x => x.id === r.lib) || r) : r;
+    const card = (r, j) => { const mi = match(r).miss; const tot = match(r).tot; const o = real(r);
+      return `<div class="idea" id="pc_${esc(r.pid)}"><button class="iopen" data-open="${j}"><span class="ih">${srcBadge(o)}${r.tempo ? `<span class="tm">${esc(r.tempo)} min</span>` : ''}</span><h4>${esc(r.name)}</h4>${r.why ? `<p class="why">${esc(r.why)}</p>` : ''}
       <p>${(r.ingr || []).map(i => esc(i.n)).join(', ')}</p><p class="${mi.length ? 'miss' : 'okm2'}">${mi.length ? `Da comprare (${mi.length} su ${tot}): ${mi.map(i => esc(i.n)).join(', ')}` : 'Hai tutto in casa'}</p></button>
-      <div class="row"><button class="bg" data-open="${j}">Vedi la ricetta</button><button class="${propSaved(r) ? 'bg' : 'bp'}" data-save="${j}">${propSaved(r) ? 'Salvata ✓' : 'Salva'}</button></div></div>` };
+      <div class="row"><button class="bg" data-open="${j}">Vedi la ricetta</button><button class="${propSaved(o) ? 'bg' : 'bp'}" data-save="${j}">${propSaved(o) ? 'Salvata ✓' : 'Salva'}</button></div></div>` };
     const draw = np => {
       AI_RES.np = np;
-      out.innerHTML = st.all.length ? `<h3>${st.all.length === 1 ? "1 ricetta" : st.all.length + " ricette"}</h3>${st.fb && st.src === 'siti' ? '<p class="hint warnbox">La ricerca su Google non è inclusa nella chiave gratuita di Gemini, quindi ti propongo ricette famose di GialloZafferano e Cucchiaio d\'Argento che Gemini conosce. Con "Cerca sul sito" apri la ricetta originale.</p>' : ''}<p class="hint">Tocca una ricetta per vederla, chiedere varianti e decidere se salvarla. Le ritrovi tutte in Ricette → Proposte.</p>` + st.all.map(card).join('') : '';
-      out.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { const r = st.all[+b.dataset.open]; AI_RES.focus = r.pid; AI_RES.v = E(q('#f'), 'v').value; AI_RES.chips = [...st.chips]; propModal(r.pid, () => aiModal()) });
-      out.querySelectorAll('[data-save]').forEach(b => b.onclick = () => { const r = st.all[+b.dataset.save]; if (propSaved(r)) { AI_RES.focus = r.pid; ricModal(r.rid); return } saveProp(r, b) });
+      out.innerHTML = st.all.length ? `<h3>${st.all.length === 1 ? "1 ricetta" : st.all.length + " ricette"}</h3>${st.fb && st.src === 'siti' ? `<p class="hint warnbox">${st.terr ? 'Tavily: ' + esc(st.terr) + '. ' : ''}Ti propongo ricette famose di GialloZafferano e Cucchiaio d'Argento che Gemini conosce. Con "Cerca sul sito" apri la ricetta originale.${tkey() ? '' : ' Per cercare le ricette vere sui siti, aggiungi la chiave gratuita di Tavily nelle Impostazioni.'}</p>` : ''}<p class="hint">${st.src === 'libro' ? 'Vengono dal Libro mastro: tocca una ricetta per vederla, chiedere varianti e salvarla tra le tue Ricette se ti piace.' : 'Tocca una ricetta per vederla, chiedere varianti e decidere se salvarla. Le ritrovi tutte in Ricette → Proposte.'}</p>` + st.all.map(card).join('') : '';
+      out.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { const r = st.all[+b.dataset.open]; AI_RES.focus = r.pid; AI_RES.v = E(q('#f'), 'v').value; AI_RES.chips = [...st.chips]; if (r.lib) propModal(r.lib, () => aiModal(), 'libro'); else propModal(r.pid, () => aiModal()) });
+      out.querySelectorAll('[data-save]').forEach(b => b.onclick = () => { const r = st.all[+b.dataset.save], o = real(r); if (propSaved(o)) { AI_RES.focus = r.pid; ricModal(o.rid); return } saveProp(o, b) });
       more.innerHTML = st.all.length ? `<button class="bg wide" id="again">Altre ${st.cnt} ricette</button>` : '';
       if (q('#again')) q('#again').onclick = () => run(true)
     };
@@ -707,10 +757,10 @@ function aiModal() {
       if (st.busy) return; st.busy = true; const f = q('#f'); const np = +E(f, 'n').value || n0;
       const want = [E(f, 'v').value.trim(), ...st.chips].filter(Boolean).join(', ');
       if (!append) { st.all.length = 0; out.innerHTML = '' }
-      more.innerHTML = `<p class="load">${st.src === 'siti' ? 'Cerco su GialloZafferano e Cucchiaio d\'Argento…' : 'Sto pensando a cosa potete cucinare…'}</p>`; q('#go').disabled = true;
+      more.innerHTML = `<p class="load">${st.src === 'libro' ? 'Cerco nel Libro mastro…' : st.src === 'siti' ? (tkey() ? 'Cerco su GialloZafferano e Cucchiaio d\'Argento con Tavily e leggo le ricette…' : 'Cerco su GialloZafferano e Cucchiaio d\'Argento…') : 'Sto pensando a cosa potete cucinare…'}</p>`; q('#go').disabled = true;
       try {
         const arr = await ask(np, want, st.cnt);
-        let R = arr.filter(x => x && x.nome).map(x => toR(x, np)).filter(r => !st.all.some(o => norm(o.name) === norm(r.name))).map(propUpsert);
+        let R = st.src === 'libro' ? arr : arr.filter(x => x && x.nome).map(x => toR(x, np)).filter(r => !st.all.some(o => norm(o.name) === norm(r.name))).map(propUpsert);
         if (st.mode !== 'libero') R.sort((a, b) => match(a).miss.length - match(b).miss.length);
         st.all.push(...R); st.shown.push(...R.map(r => r.name)); LS.set('aiseen', [...R.map(r => r.name), ...(LS.get('aiseen') || [])].slice(0, 60));
         draw(np); if (!R.length) more.innerHTML = '<p class="load">Non ho trovato niente di nuovo: prova a cambiare richiesta.</p>' + more.innerHTML;
@@ -883,12 +933,20 @@ function settingsModal() {
   <h3>Sicurezza dei dati</h3><div class="acts-l" style="margin-top:0"><button class="act" id="bk"><span class="ai">${IC.shield}</span><span><b>Backup e ripristino</b><small>${S.famRaw && S.famRaw.lastBackup ? 'Ultima copia automatica: ' + new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long' }).format(new Date(S.famRaw.lastBackup)) : 'Scarica una copia o torna a una precedente'}</small></span></button></div>
   <h3>Gemini <small style="font-weight:400;color:var(--mut)">facoltativo</small></h3><p class="sub">Con una chiave gratuita di Google Gemini l'app legge meglio gli scontrini e propone ricette con quello che avete. Creala su <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. L'app la usa per leggere scontrini e foto, proporre ricette e menù e capire i prodotti che non conosce.</p>
   <form id="gf"><label>Chiave API<input name="k" type="password" autocomplete="off" value="${esc(gkey())}" placeholder="AIza…"></label><label>Modello <small>lascia vuoto: lo sceglie l'app</small><input name="m" value="${esc(LS.get('gmodel', '') === 'gemini-2.5-flash' ? '' : LS.get('gmodel', ''))}" placeholder="automatico${LS.get('gok', '') ? ' (ora ' + esc(LS.get('gok', '')) + ')' : ''}" autocomplete="off"></label><label class="ck"><input type="checkbox" name="sh"${S.famKey ? ' checked' : ''}> Usala per tutta la famiglia <small style="font-weight:400;color:var(--mut)">così gli altri non devono inserirla</small></label><p class="hint" id="gres">${S.famKey && !LS.get('gkey', '') ? 'Stai usando la chiave condivisa dalla famiglia.' : ''}</p><div class="acts">${gkey() ? '<button type="button" class="bd" id="gdel">Togli la chiave</button>' : ''}<button type="button" class="bg" id="gtest">Prova</button><button class="bp">Salva</button></div></form>
+  <h3>Ricette dai siti <small style="font-weight:400;color:var(--mut)">facoltativo</small></h3><p class="sub">Con una chiave gratuita di Tavily l'app cerca le ricette vere su GialloZafferano e Cucchiaio d'Argento, con il link giusto. Sono 1.000 ricerche gratis al mese: ogni "Cerca ricette" ne usa una. Creala su <a href="https://app.tavily.com" target="_blank" rel="noopener">app.tavily.com</a> (serve anche Gemini).</p>
+  <form id="tf"><label>Chiave Tavily<input name="k" type="password" autocomplete="off" value="${esc(tkey())}" placeholder="tvly-…"></label><label class="ck"><input type="checkbox" name="sh"${S.famTkey ? ' checked' : ''}> Usala per tutta la famiglia</label>
+  <details class="more"><summary>Indirizzo intermedio (solo se serve)</summary><label>Indirizzo<input name="px" value="${esc(LS.get('tproxy', ''))}" placeholder="https://…workers.dev" autocomplete="off"></label><p class="hint">Lascialo vuoto. Serve solo se il telefono non riesce a collegarsi a Tavily.</p></details>
+  <p class="hint" id="tres">${S.famTkey && !LS.get('tkey', '') ? 'Stai usando la chiave condivisa dalla famiglia.' : ''}</p><div class="acts">${tkey() ? '<button type="button" class="bd" id="tdel">Togli</button>' : ''}<button type="button" class="bg" id="ttest">Prova</button><button class="bp">Salva</button></div></form>
   <h3>Questo telefono</h3><button class="bg wide" id="tr">Rivedi la guida iniziale</button><p style="margin:10px 0 0"><button class="bd" id="out" style="margin:0">Esci dalla famiglia su questo telefono</button></p><p class="hint">Versione ${APP_V}</p>`, m => {
     m.querySelector('#inv').onclick = () => shareText('Cosa si mangia?', 'Entra nella nostra app della cucina: ' + inviteLink());
     m.querySelector('#nm').onclick = namesModal; m.querySelector('#ab').onclick = () => habitsModal(); m.querySelector('#ac').onclick = activityModal; m.querySelector('#gu').onclick = tastesModal; m.querySelector('#bk').onclick = backupModal; m.querySelector('#tr').onclick = () => tourModal();
     const gsave = f => { const key = E(f, 'k').value.trim(), sh = E(f, 'sh').checked; LS.set('gkey', key); LS.set('gmodel', E(f, 'm').value.trim()); LS.del('gauto2'); LS.del('gok'); if (F && (sh ? key !== S.famKey : !!S.famKey)) { S.famKey = sh ? key : ''; F.fs.setDoc(famRef(), { gkey: sh && key ? key : F.fs.deleteField() }, { merge: true }).catch(werr) } };
     m.querySelector('#gf').onsubmit = e => { e.preventDefault(); gsave(e.target); close(); render(); toast(gkey() ? 'Gemini attivo' : 'Salvato') };
     m.querySelector('#gtest').onclick = async () => { const f = m.querySelector('#gf'), out = m.querySelector('#gres'); gsave(f); if (!gkey()) { out.textContent = 'Incolla prima la chiave.'; return } out.textContent = 'Provo…'; try { const r = await gemini([{ text: 'Rispondi solo con JSON: {"ok":true}' }], md => out.textContent = `Provo con ${md}…`); out.textContent = r && r.ok ? `Funziona, modello ${LS.get('gok', '')}.` : 'Risposta strana, ma la chiave funziona.'; render() } catch (err) { out.textContent = 'Non funziona: ' + (err.message || err) } };
+    const tsave = f => { const key = E(f, 'k').value.trim(), sh = E(f, 'sh').checked; LS.set('tkey', key); LS.set('tproxy', E(f, 'px').value.trim()); LS.del('nogrd'); if (F && (sh ? key !== S.famTkey : !!S.famTkey)) { S.famTkey = sh ? key : ''; F.fs.setDoc(famRef(), { tkey: sh && key ? key : F.fs.deleteField() }, { merge: true }).catch(werr) } };
+    m.querySelector('#tf').onsubmit = e => { e.preventDefault(); tsave(e.target); close(); toast(tkey() ? 'Ricerca sui siti attiva' : 'Salvato') };
+    m.querySelector('#ttest').onclick = async () => { const f = m.querySelector('#tf'), out = m.querySelector('#tres'); tsave(f); if (!tkey()) { out.textContent = 'Incolla prima la chiave.'; return } out.textContent = 'Provo…'; try { const r = await tavily('ricetta carbonara', 5); const n = r.filter(x => RECIPE_URL.test(x.url)).length; out.textContent = n ? `Funziona: trovate ${n} ricette sui siti.` : `Funziona, ma non ho trovato ricette (${r.length} risultati).` } catch (err) { out.textContent = 'Non funziona: ' + (err.message || err) } };
+    const td = m.querySelector('#tdel'); if (td) td.onclick = () => { LS.del('tkey'); if (F && S.famTkey) { S.famTkey = ''; F.fs.setDoc(famRef(), { tkey: F.fs.deleteField() }, { merge: true }).catch(werr) } close() };
     const gd = m.querySelector('#gdel'); if (gd) gd.onclick = () => { LS.del('gkey'); if (F && S.famKey) { S.famKey = ''; F.fs.setDoc(famRef(), { gkey: F.fs.deleteField() }, { merge: true }).catch(werr) } close(); render() };
     let armed = false; m.querySelector('#out').onclick = e => { if (!armed) { armed = true; e.target.textContent = 'Sicuro? Tocca di nuovo'; return } LS.del('fam'); LS.del('me'); location.href = location.pathname }
   })
@@ -924,11 +982,11 @@ function delU(c, id, what) { const old = S[KEY[c]].find(x => x.id === id); if (!
 function go(t) { if (!TABS.includes(t)) t = 'settimana'; if (t === S.tab) { window.scrollTo({ top: 0, behavior: 'smooth' }); return } S.tab = t; history.pushState(null, '', '#' + t); render(); window.scrollTo(0, 0) }
 
 /* ---------- backup e ripristino ---------- */
-const BK_COLS = ['dispensa', 'ricette', 'spesa', 'spese', 'presenze', 'menu', 'stats', 'attivita'];
+const BK_COLS = ['dispensa', 'ricette', 'libro', 'spesa', 'spese', 'presenze', 'menu', 'stats', 'attivita'];
 const runAll = async jobs => { for (let i = 0; i < jobs.length; i += 20) await Promise.all(jobs.slice(i, i + 20).map(j => j())) };
 async function buildBackup(light) {
   const { fs } = F; const out = { app: 'cosa-si-mangia', v: APP_V, at: Date.now(), fam: {}, cols: {} };
-  const g = await fs.getDoc(famRef()); out.fam = g.exists() ? g.data() : {}; delete out.fam.gkey;
+  const g = await fs.getDoc(famRef()); out.fam = g.exists() ? g.data() : {}; delete out.fam.gkey; delete out.fam.tkey;
   for (const c of BK_COLS) { if (light && c === 'attivita') continue; const s = await fs.getDocs(col(c)); out.cols[c] = {}; s.docs.forEach(d => out.cols[c][d.id] = d.data()) }
   return out
 }
@@ -964,7 +1022,7 @@ async function applyBackup(b) {
     await runAll(cur.docs.filter(d => !(d.id in keep)).map(d => () => fs.deleteDoc(dref(c, d.id))));
     await runAll(Object.entries(keep).map(([id, v]) => () => fs.setDoc(dref(c, id), v)))
   }
-  const fam = { ...(b.fam || {}), dataV: DATA_V, lastBackup: Date.now() }; if (S.famKey) fam.gkey = S.famKey; if (!fam.members) fam.members = members();
+  const fam = { ...(b.fam || {}), dataV: DATA_V, lastBackup: Date.now() }; if (S.famKey) fam.gkey = S.famKey; if (S.famTkey) fam.tkey = S.famTkey; if (!fam.members) fam.members = members();
   await fs.setDoc(famRef(), fam)
 }
 let maintained = false;
@@ -1532,7 +1590,7 @@ function importModal() {
 }
 function ricSheet() {
   const it = (act, t, sub, ic) => `<button class="act" data-act="${act}"><span class="ai">${ic}</span><span><b>${t}</b><small>${sub}</small></span></button>`;
-  modal(`<h2>Aggiungi una ricetta</h2><div class="acts-l">${it('rnew', 'Scrivila', 'Nome, ingredienti e passaggi', IC.pen)}${it('rimp', 'Importa da foto, testo o link', 'La legge Gemini, poi la correggi', IC.cam)}${it('ai', 'Trova ricette', 'GialloZafferano, Cucchiaio d\'Argento o inventate', IC.star)}</div>`)
+  modal(`<h2>Aggiungi una ricetta</h2><div class="acts-l">${it('rnew', 'Scrivila', 'Nome, ingredienti e passaggi', IC.pen)}${it('rimp', 'Importa da foto, testo o link', 'La legge Gemini, poi la correggi', IC.cam)}${it('ai', 'Trova ricette', 'GialloZafferano, Cucchiaio d\'Argento o inventate', IC.star)}${it('rfile', 'Tante ricette insieme', 'Da un PDF o da un file di ricette', IC.rec)}</div>`)
 }
 
 /* ---------- riepilogo del giorno ---------- */
@@ -1555,42 +1613,45 @@ let PROPS = LS.get('aiprop', []);
 const propSave = () => { PROPS = PROPS.slice(0, 120); LS.set('aiprop', PROPS) };
 function propUpsert(r) { const i = PROPS.findIndex(p => p.pid === r.pid || norm(p.name) === norm(r.name)); const { link, ...v } = r; if (i >= 0) { v.pid = PROPS[i].pid; v.rid = PROPS[i].rid || v.rid; if (PROPS[i] !== r) Object.assign(PROPS[i], v); if (!r.link) delete PROPS[i].link } else PROPS.unshift(v); propSave(); return i >= 0 ? PROPS[i] : PROPS[0] }
 const propGet = pid => PROPS.find(p => p.pid === pid);
+const persistItem = p => { if (p.pid) propUpsert(p); else if (p.id) { const { id, ...v } = p; save('libro', id, v) } };
+const srcBadge = p => p.pid ? `<span class="src ${p.fonte ? (/cucchiaio/i.test(p.fonte) ? 'cu' : 'gz') : 'gm'}">${p.fonte ? esc(p.fonte) : 'Idea di Gemini'}</span>` : `<span class="src lb">Libro mastro${p.fonte ? ' · ' + esc(p.fonte) : ''}</span>`;
 const propSaved = p => p.rid && S.ric.some(r => r.id === p.rid);
-const linkOf = p => p.url || (p.fonte ? siteSearch(p.name, p.fonte) : '');
+const linkOf = p => p.url || (p.pid && p.fonte ? siteSearch(p.name, p.fonte) : '');
 
 async function fetchProc(p) {
   let y = null;
   if (p.url) { try { const x = await gemini([{ text: `Apri questa pagina: ${p.url} ed estrai la ricetta che contiene, in italiano. Rispondi SOLO con JSON: ` + RIC_FMT }], null, { tools: [{ url_context: {} }] }); y = toRic((x && x.ricetta) || x || {}); if (!y.passi) y = null } catch (e) { console.warn('pagina', e) } }
   if (!y) { const x = await gemini([{ text: `Scrivi il procedimento della ricetta "${p.name}"${p.fonte ? ' come la propone ' + p.fonte : ''}, in italiano, passo per passo, semplice e preciso. Ingredienti: ${(p.ingr || []).map(i => i.n + (i.q != null ? ' ' + i.q + ' ' + i.u : '')).join(', ')}. Mantieni questi ingredienti. Rispondi SOLO con JSON: ` + RIC_FMT }]); y = toRic((x && x.ricetta) || x || {}); if (y.passi) p.procAi = true; y.ingr = [] }
-  if (y.ingr.length) { p.ingr = y.ingr; p.porz = y.porz || p.porz } if (y.passi) p.passi = y.passi; if (y.tempo && !p.tempo) p.tempo = y.tempo; propUpsert(p); return !!y.passi
+  if (y.ingr.length) { p.ingr = y.ingr; p.porz = y.porz || p.porz } if (y.passi) p.passi = y.passi; if (y.tempo && !p.tempo) p.tempo = y.tempo; persistItem(p); return !!y.passi
 }
 async function saveProp(p, btn) {
   if (propSaved(p)) { ricModal(p.rid); return }
   if (btn) { btn.disabled = true; btn.textContent = !p.passi ? 'Prendo il procedimento…' : 'Salvo…' }
   if (!p.passi) { try { await fetchProc(p) } catch (e) { console.warn(e) } }
-  const data = { name: p.name, porz: +p.porz || 4, tempo: p.tempo || '', ingr: p.ingr || [], passi: p.passi || (linkOf(p) ? 'Procedimento sul sito: ' + linkOf(p) : ''), tags: ['proposta'], tipo: tipoOf(p), veg: isVeg(p), ...(p.url ? { url: p.url, fonte: p.fonte || '' } : {}) };
-  p.rid = save('ricette', null, data); propUpsert(p); logA('ha salvato la ricetta ' + p.name);
+  const data = { name: p.name, porz: +p.porz || 4, tempo: p.tempo || '', ingr: p.ingr || [], passi: p.passi || (linkOf(p) ? 'Procedimento sul sito: ' + linkOf(p) : ''), tags: [p.pid ? 'proposta' : 'dal libro mastro'], tipo: tipoOf(p), veg: isVeg(p), ...(p.url ? { url: p.url, fonte: p.fonte || '' } : !p.pid && p.fonte ? { fonte: p.fonte } : {}) };
+  p.rid = save('ricette', null, data); persistItem(p); logA('ha salvato la ricetta ' + p.name);
   if (btn) { btn.disabled = false; btn.textContent = 'Salvata ✓'; btn.classList.remove('bp'); btn.classList.add('bg') }
   toast('Ricetta salvata in Ricette'); return p.rid
 }
 
-function propModal(pid, back) {
-  const p = propGet(pid); if (!p) return; const n = +p.porz || 4;
+function propModal(pid, back, kind) {
+  const lib = kind === 'libro'; const p = lib ? S.libro.find(x => x.id === pid) : propGet(pid); if (!p) return; const n = +p.porz || 4;
   const st = (p.ingr || []).map(i => ({ i, s: ingStatus(i, 1) })); const need = st.filter(x => x.s.st !== 'y'); const lk = linkOf(p);
-  modal(`${back ? '<button class="lnk backl" id="pback">‹ Torna alle proposte</button>' : ''}<h2>${esc(p.name)}</h2>
-  <p class="sub"><span class="src ${p.fonte ? (/cucchiaio/i.test(p.fonte) ? 'cu' : 'gz') : 'gm'}">${p.fonte ? esc(p.fonte) : 'Idea di Gemini'}</span> ${[p.tempo ? p.tempo + ' min' : '', 'per ' + n, COURSE_L[tipoOf(p)] || '', isVeg(p) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</p>
+  modal(`${back ? '<button class="lnk backl" id="pback">‹ Torna all\'elenco</button>' : ''}<h2>${esc(p.name)}</h2>
+  <p class="sub">${srcBadge(p)} ${[p.tempo ? p.tempo + ' min' : '', 'per ' + n, COURSE_L[tipoOf(p)] || '', isVeg(p) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</p>
   ${p.why ? `<p class="why">${esc(p.why)}</p>` : ''}
   <h3>Ingredienti</h3><ul class="ing">${st.map(({ i, s }) => `<li class="${s.st}"><span class="mk">${s.st === 'y' ? '✓' : s.st === 'p' ? '!' : '✗'}</span><span>${esc(i.n)}</span><span class="q">${fmtQ(i.q, i.u)}</span></li>`).join('') || '<li>Ingredienti non indicati.</li>'}</ul>
   ${p.passi ? `<h3>Preparazione</h3><ol class="steps">${String(p.passi).split(/\n+/).map(s => s.trim()).filter(Boolean).map(s => `<li>${esc(s.replace(/^\d+[.)]\s*/, ''))}</li>`).join('')}</ol>` : `<p style="margin-top:14px"><button class="bg wide" id="proc">${p.url ? 'Leggi il procedimento dal sito' : 'Mostra il procedimento'}</button></p>`}${p.passi && p.procAi ? '<p class="hint">Procedimento scritto da Gemini: può essere un po\' diverso da quello del sito.</p>' : ''}
   ${lk ? `<p class="srclnk"><a href="${esc(lk)}" target="_blank" rel="noopener">${p.url ? 'Apri la ricetta originale' : 'Cerca la ricetta'}${p.fonte ? ' su ' + esc(p.fonte) : ''} ↗</a></p>` : ''}
   <div id="ask"></div>
-  <div class="acts">${need.length ? `<button class="bg" id="pbuy">Metti in spesa (${need.length})</button>` : ''}<button class="${propSaved(p) ? 'bg' : 'bp'}" id="psave">${propSaved(p) ? 'Salvata ✓ · Apri' : 'Salva tra le ricette'}</button></div>`, m => {
+  <div class="acts">${lib ? '<button class="bd" id="pdel">Togli dal libro</button>' : ''}${need.length ? `<button class="bg" id="pbuy">Metti in spesa (${need.length})</button>` : ''}<button class="${propSaved(p) ? 'bg' : 'bp'}" id="psave">${propSaved(p) ? 'Salvata ✓ · Apri' : 'Salva tra le ricette'}</button></div>`, m => {
     const q = s => m.querySelector(s);
     if (q('#pback')) q('#pback').onclick = back;
-    if (q('#proc')) q('#proc').onclick = async e => { e.target.disabled = true; e.target.textContent = p.url ? 'Leggo la pagina…' : 'Lo chiedo a Gemini…'; try { const ok = await fetchProc(p); if (ok) propModal(pid, back); else { e.target.disabled = false; e.target.textContent = 'Non ci sono riuscito: riprova'; } } catch (x) { e.target.disabled = false; e.target.textContent = 'Non è andata (' + (x.message || x) + '): riprova' } };
+    if (q('#pdel')) q('#pdel').onclick = () => { close(); delU('libro', p.id, p.name) };
+    if (q('#proc')) q('#proc').onclick = async e => { e.target.disabled = true; e.target.textContent = p.url ? 'Leggo la pagina…' : 'Lo chiedo a Gemini…'; try { const ok = await fetchProc(p); if (ok) propModal(pid, back, kind); else { e.target.disabled = false; e.target.textContent = 'Non ci sono riuscito: riprova'; } } catch (x) { e.target.disabled = false; e.target.textContent = 'Non è andata (' + (x.message || x) + '): riprova' } };
     if (q('#pbuy')) q('#pbuy').onclick = e => { addToSpesa(need.map(x => ({ name: x.i.n, qty: x.s.need.q == null ? null : round(x.s.need.q), unit: x.s.need.u, from: p.name }))); e.target.disabled = true; e.target.textContent = 'In spesa ✓'; toast(`${need.length} ${need.length === 1 ? 'ingrediente messo' : 'ingredienti messi'} in lista della spesa`) };
     q('#psave').onclick = e => { if (propSaved(p)) ricModal(p.rid); else saveProp(p, e.target).then(() => { const b = q('#psave'); if (b) b.textContent = 'Salvata ✓ · Apri' }) };
-    askBox(q('#ask'), 'p:' + pid, () => p, { label: 'Usa questa versione', apply: x => { const y = toRic(x); Object.assign(p, { name: y.name || p.name, ingr: y.ingr.length ? y.ingr : p.ingr, passi: y.passi || p.passi, porz: y.porz || p.porz, tempo: y.tempo || p.tempo }); delete p.veg; propUpsert(p); propModal(pid, back); toast('Ricetta aggiornata con la variazione') } })
+    askBox(q('#ask'), 'p:' + pid, () => p, { label: lib ? 'Salva come nuova (le ricette del libro restano com\'erano)' : 'Usa questa versione', apply: lib ? null : x => { const y = toRic(x); Object.assign(p, { name: y.name || p.name, ingr: y.ingr.length ? y.ingr : p.ingr, passi: y.passi || p.passi, porz: y.porz || p.porz, tempo: y.tempo || p.tempo }); delete p.veg; propUpsert(p); propModal(pid, back); toast('Ricetta aggiornata con la variazione') } })
   })
 }
 
@@ -1627,11 +1688,11 @@ const SORTS = [['casa', 'cosa avete'], ['tempo', 'più veloci'], ['nome', 'nome'
 function filterBar(prop) {
   const f = S.rf || (S.rf = { tipo: '', fast: false, veg: false, can: false, fonte: '', sort: 'casa' });
   const c = (act, v, on, l) => `<button class="chip${on ? ' on' : ''}" data-act="${act}" data-v="${v}">${l}</button>`;
-  return `<div class="fbar">${c('rfs', '', false, 'Ordina: ' + (SORTS.find(s => s[0] === f.sort) || SORTS[0])[1] + ' ▾')}${c('rft', 'can', f.can, 'Si può fare')}${c('rft', 'fast', f.fast, 'Veloci')}${c('rft', 'veg', f.veg, 'Vegetariane')}${TIPI.map(([k, l]) => c('rftipo', k, f.tipo === k, l)).join('')}${prop ? [['GialloZafferano', 'GialloZafferano'], ['Cucchiaio d\'Argento', 'Cucchiaio'], ['gemini', 'Gemini']].map(([k, l]) => c('rffonte', k, f.fonte === k, l)).join('') : ''}</div>`
+  return `<div class="fbar">${c('rfs', '', false, 'Ordina: ' + (SORTS.find(s => s[0] === f.sort) || SORTS[0])[1] + ' ▾')}${c('rft', 'can', f.can, 'Si può fare')}${c('rft', 'fast', f.fast, 'Veloci')}${c('rft', 'veg', f.veg, 'Vegetariane')}${TIPI.map(([k, l]) => c('rftipo', k, f.tipo === k, l)).join('')}${(prop === 'libro' ? [...new Set(S.libro.map(r => r.fonte).filter(Boolean))].slice(0, 8).map(x => [x, x.length > 22 ? x.slice(0, 20) + '…' : x]) : prop ? [['GialloZafferano', 'GialloZafferano'], ['Cucchiaio d\'Argento', 'Cucchiaio'], ['gemini', 'Gemini']] : []).map(([k, l]) => c('rffonte', esc(k), f.fonte === k, esc(l))).join('')}</div>`
 }
 function applyFilters(L, prop) {
   const f = S.rf || {}; const q = norm(S.rq || '');
-  let out = L.map(r => ({ r, m: match(r) })).filter(({ r, m }) => (!q || norm(r.name).includes(q) || (r.ingr || []).some(i => norm(i.n).includes(q)) || norm((r.tags || []).join(' ')).includes(q)) && (!f.can || !m.miss.length) && (!f.fast || fastOf(r)) && (!f.veg || isVeg(r)) && (!f.tipo || tipoOf(r) === f.tipo) && (!prop || !f.fonte || (f.fonte === 'gemini' ? !r.fonte : r.fonte === f.fonte)));
+  let out = L.map(r => ({ r, m: match(r) })).filter(({ r, m }) => (!q || norm(r.name).includes(q) || (r.ingr || []).some(i => norm(i.n).includes(q)) || norm((r.tags || []).join(' ')).includes(q)) && (!f.can || !m.miss.length) && (!f.fast || fastOf(r)) && (!f.veg || isVeg(r)) && (!f.tipo || tipoOf(r) === f.tipo) && (!prop || !f.fonte || (f.fonte === 'gemini' && prop !== 'libro' ? !r.fonte : r.fonte === f.fonte)));
   const by = { casa: (a, b) => (a.m.miss.length - b.m.miss.length) || String(a.r.name).localeCompare(b.r.name, 'it'), tempo: (a, b) => (+a.r.tempo || 999) - (+b.r.tempo || 999), nome: (a, b) => String(a.r.name).localeCompare(b.r.name, 'it'), recenti: (a, b) => (b.r.ts || 0) - (a.r.ts || 0) }[f.sort || 'casa'];
   return out.sort(by)
 }
@@ -1640,11 +1701,70 @@ function renderProps() {
   $('#rlist').innerHTML = (PROPS.length ? '' : '<li class="empty">Qui trovi tutte le ricette che ti ha proposto "Trova ricette", anche dopo aver chiuso. Tocca + e poi "Trova ricette".</li>') + L.map(({ r, m }) => `<li class="rc prc"><button data-act="popen" data-pid="${esc(r.pid)}"><span class="ih"><span class="src ${r.fonte ? (/cucchiaio/i.test(r.fonte) ? 'cu' : 'gz') : 'gm'}">${r.fonte ? esc(r.fonte) : 'Gemini'}</span>${propSaved(r) ? '<span class="svd">✓ salvata</span>' : ''}</span><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? r.tempo + ' min' : '', COURSE_L[tipoOf(r)] || '', isVeg(r) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</span><span class="mt">${m.miss.length ? `Mancano ${m.miss.length}: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto in casa'}</span></button><button class="x" data-act="pdel" data-pid="${esc(r.pid)}" aria-label="Togli">×</button></li>`).join('')
     + (PROPS.length && !L.length ? '<li class="empty">Nessuna proposta con questi filtri.</li>' : '') + (PROPS.length ? '<li class="pcl"><button class="lnk" data-act="pclear">Svuota le proposte</button></li>' : '')
 }
+function renderLibro() {
+  const L = applyFilters(S.libro, 'libro');
+  $('#rlist').innerHTML = (S.libro.length ? '' : '<li class="empty"><b>Il Libro mastro è vuoto.</b><br>Qui finiscono le ricette importate dai PDF o dai file: le sfogli, Gemini te le può proporre, e tra le tue Ricette metti solo quelle che ti piacciono. Tocca + e poi "Tante ricette insieme".</li>')
+    + L.map(({ r, m }) => `<li class="rc prc"><button data-act="lopen" data-id="${esc(r.id)}"><span class="ih">${r.fonte ? `<span class="src lb">${esc(r.fonte)}</span>` : ''}${r.rid && S.ric.some(x => x.id === r.rid) ? '<span class="svd">✓ tra le ricette</span>' : ''}</span><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? r.tempo + ' min' : '', COURSE_L[tipoOf(r)] || '', isVeg(r) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</span><span class="mt">${m.miss.length ? `Mancano ${m.miss.length}: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto in casa'}</span></button></li>`).join('')
+    + (S.libro.length && !L.length ? '<li class="empty">Nessuna ricetta con questi filtri.</li>' : '')
+}
 async function classifyRics() {
   const L = S.ric.filter(r => !r.tipo); if (!L.length || !gkey()) return; toast('Classifico ' + L.length + ' ricette…');
   try { const res = await gemini([{ text: `Classifica queste ricette italiane. Per ognuna dai "tipo" (uno tra antipasto, primo, secondo, contorno, unico, dolce) e "veg" (true se vegetariana, cioè senza carne e pesce).\n${L.map((r, i) => `${i}. ${r.name}: ${(r.ingr || []).map(x => x.n).join(', ')}`).join('\n')}\nRispondi SOLO con JSON: {"r":[{"i":0,"tipo":"primo","veg":true}]}` }]);
     let k = 0; ((res && res.r) || []).forEach(x => { const r = L[+x.i]; if (r && TIPI.some(([t]) => t === x.tipo)) { save('ricette', r.id, { ...r, tipo: x.tipo, veg: !!x.veg }); k++ } }); toast(k ? `${k} ricette classificate` : 'Gemini non ha risposto, riprova') }
   catch (e) { toast('Non è andata: ' + (e.message || e)) }
+}
+
+/* ---------- tante ricette insieme: da PDF (Gemini) o da file .json ---------- */
+const BOOK_FMT = '{"ricette":[{"nome":"...","porzioni":4,"tempo":30,"tipo":"antipasto o primo o secondo o contorno o unico o dolce","veg":true,"ingredienti":[{"n":"nome in minuscolo","q":200,"u":"g"}],"passi":["..."]}],"finito":true} dove "u" è uno tra g, kg, ml, l, pz, cucchiai, spicchi, fette, qb e "q" è un numero o null';
+function normRic(x, fonte) {
+  if (!x || typeof x !== 'object') return null;
+  const r = x.nome || x.ingredienti ? toRic(x) : { name: String(x.name || ''), porz: +x.porz || 4, tempo: +x.tempo || '', ingr: (x.ingr || []).filter(i => i && i.n).map(i => ({ n: String(i.n), q: i.q == null || i.q === '' ? null : +i.q, u: UNITS.includes(i.u) ? i.u : (UMAP[i.u] || 'pz') })), passi: Array.isArray(x.passi) ? x.passi.join('\n') : String(x.passi || ''), tags: Array.isArray(x.tags) ? x.tags : [] };
+  if (Array.isArray(x.righe) && x.righe.length) r.ingr = x.righe.map(l => parseLine(String(l))).filter(Boolean).map(({ ux, ...i }) => i);
+  if (x.porz) r.porz = +x.porz || r.porz; if (x.tempo) r.tempo = +x.tempo || r.tempo;
+  if (!r.name) return null;
+  const t = x.tipo; if (TIPI.some(([k]) => k === t)) r.tipo = t; if (typeof x.veg === 'boolean') r.veg = x.veg;
+  r.fonte = String(x.fonte || fonte || ''); if (x.pagina) r.pagina = x.pagina; return r
+}
+function ricFileModal() {
+  modal(`<h2>Tante ricette insieme</h2><p class="sub">Carica un PDF con delle ricette (un ricettario, appunti, stampe): Gemini le trova tutte e le mette nel Libro mastro, senza riempire le tue Ricette. Oppure carica un file di ricette già pronto (.json).</p>
+  <div class="acts-l" style="margin-top:0"><label class="act" style="cursor:pointer"><span class="ai">${IC.rec}</span><span><b>Da un PDF</b><small>Fino a circa 20 MB, serve Gemini</small></span><input type="file" id="bpdf" accept="application/pdf,.pdf" hidden></label><label class="act" style="cursor:pointer"><span class="ai">${IC.down}</span><span><b>Da un file di ricette (.json)</b><small>Per esempio quello preparato da Claude</small></span><input type="file" id="bjson" accept="application/json,.json" hidden></label></div>
+  <p class="load" id="bst" hidden></p>`, m => {
+    const st = t => { const e = m.querySelector('#bst'); if (e) { e.hidden = !t; e.textContent = t } };
+    m.querySelector('#bjson').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+      try { const j = JSON.parse(await f.text()); const arr = Array.isArray(j) ? j : (j.ricette || j.recipes || []); const L = arr.map(x => normRic(x, j.fonte || f.name.replace(/\.json$/i, ''))).filter(Boolean); if (!L.length) { st('In questo file non ho trovato ricette.'); return } bulkReview(L, f.name) }
+      catch (x) { st('Il file non si legge: ' + (x.message || x)) } };
+    m.querySelector('#bpdf').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+      if (!gkey()) { st('Per leggere i PDF serve Gemini: attivalo nelle Impostazioni. In alternativa manda il PDF a Claude e importa il file .json che ti prepara.'); return }
+      if (f.size > 19 * 1024 * 1024) { st('Il PDF è troppo grande (più di 19 MB). Dividilo in parti più piccole, oppure mandalo a Claude.'); return }
+      const data = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(f) });
+      const fonte = f.name.replace(/\.pdf$/i, ''); const all = [];
+      try {
+        for (let round = 0; round < 12; round++) {
+          st(`Leggo il PDF… ${all.length ? all.length + ' ricette trovate finora' : 'può volerci qualche minuto'}`);
+          const p = `Questo PDF contiene ricette di cucina. Trascrivi in italiano le ricette che contiene, fedelmente, senza inventare niente: nome, porzioni, tempo totale in minuti se indicato, tipo di piatto, se è vegetariana, ingredienti con quantità e passi del procedimento.${all.length ? `\nHai già trascritto queste ${all.length} ricette: ${all.map(r => r.name).join('; ')}. Continua con le ricette successive, senza ripeterle.` : ''}\nTrascrivi al massimo 15 ricette per volta. Metti "finito": true se non ci sono altre ricette dopo queste, altrimenti false.\nRispondi SOLO con JSON in questa forma: ${BOOK_FMT}`;
+          const res = await gemini([{ text: p }, { inline_data: { mime_type: 'application/pdf', data } }], null, { ms: 120000 });
+          const got = ((res && res.ricette) || []).map(x => normRic(x, fonte)).filter(r => r && !all.some(o => norm(o.name) === norm(r.name)));
+          all.push(...got); if (!got.length || res.finito !== false) break
+        }
+        if (!all.length) { st('Non ho trovato ricette in questo PDF. Se è una scansione poco leggibile, prova a mandarlo a Claude.'); return }
+        bulkReview(all, f.name)
+      } catch (x) { if (all.length) { toast('Mi sono fermato a metà: ' + (x.message || x)); bulkReview(all, f.name) } else st('Non è andata: ' + (x.message || x)) }
+    };
+  })
+}
+function bulkReview(L, label) {
+  const dup = r => S.libro.some(o => norm(o.name) === norm(r.name));
+  const sel = L.map(r => !dup(r));
+  modal(`<h2>${L.length === 1 ? '1 ricetta trovata' : L.length + ' ricette trovate'}</h2><p class="sub">Da <b>${esc(label)}</b>. Vanno nel <b>Libro mastro</b>, non tra le tue Ricette: lì le sfogli, Gemini te le può proporre, e salvi solo quelle che ti piacciono. Togli la spunta a quelle che non vuoi; quelle già presenti nel libro sono senza spunta.</p>
+  <div class="row" style="margin-bottom:6px"><button class="bg" id="ball">Tutte</button><button class="bg" id="bnone">Nessuna</button></div>
+  <div class="card bulk">${L.map((r, i) => `<label class="bk"><input type="checkbox" data-i="${i}"${sel[i] ? ' checked' : ''}><span><b>${esc(r.name)}</b><small>${[COURSE_L[tipoOf(r)] || '', r.tempo ? r.tempo + ' min' : '', ((r.ingr || []).length === 1 ? '1 ingrediente' : (r.ingr || []).length + ' ingredienti'), r.passi ? '' : 'senza procedimento', dup(r) ? 'già nel libro' : ''].filter(Boolean).map(esc).join(' · ')}</small></span></label>`).join('')}</div>
+  <div class="acts"><button class="bg" data-act="close">Annulla</button><button class="bp" id="bsave"></button></div>`, m => {
+    const boxes = [...m.querySelectorAll('.bulk input')]; const btn = m.querySelector('#bsave');
+    const upd = () => { const n = boxes.filter(b => b.checked).length; btn.textContent = n ? `Metti ${n === 1 ? '1 ricetta' : n + ' ricette'} nel Libro mastro` : 'Metti nel Libro mastro'; btn.disabled = !n };
+    boxes.forEach(b => b.onchange = upd); upd();
+    m.querySelector('#ball').onclick = () => { boxes.forEach(b => b.checked = true); upd() }; m.querySelector('#bnone').onclick = () => { boxes.forEach(b => b.checked = false); upd() };
+    btn.onclick = () => { const pick = boxes.filter(b => b.checked).map(b => L[+b.dataset.i]); const now = Date.now(); pick.forEach((r, i) => save('libro', null, { ...r, ts: now + i })); logA(`ha messo ${pick.length} ricette nel Libro mastro (${label})`); close(); S.rview = 'libro'; if (S.rf) S.rf.fonte = ''; go('ricette'); render(); toast(`${pick.length === 1 ? '1 ricetta' : pick.length + ' ricette'} nel Libro mastro`) };
+  })
 }
 
 /* ---------- eventi ---------- */
@@ -1653,12 +1773,12 @@ document.addEventListener('click', e => {
   if (a === 'close') close(); else if (a === 'reload') location.reload(); else if (a === 'tab') go(ds.v); else if (a === 'live') liveScan(); else if (a === 'osp') guestModal(ds.d, ds.meal); else if (a === 'chef') cycleChef(ds.d, ds.meal); else if (a === 'plan') planModal(); else if (a === 'miss') missModal(); else if (a === 'shop') shopMode();
   else if (a === 'shtog') { const x = S.spesa.find(y => y.id === ds.id); if (x) save('spesa', x.id, { ...x, done: !x.done }) }
   else if (a === 'shend') { const L = S.spesa.filter(x => x.done); close(); L.forEach(x => { mergeDisp({ name: x.name, qty: x.qty, unit: x.unit, ux: x.qty != null }); del('spesa', x.id) }); logA('ha messo in dispensa la spesa: ' + listTxt(L.map(x => x.name))); toast(`${L.length} cose messe in dispensa`) }
-  else if (a === 'rate') rateDish(ds.k, +ds.v); else if (a === 'eatadd') eatAdd(ds.k); else if (a === 'rplus') ricSheet(); else if (a === 'rimp') importModal(); else if (a === 'rview') { S.rview = ds.v; render() }
-  else if (a === 'popen') propModal(ds.pid); else if (a === 'pdel') { const old = PROPS.slice(); PROPS = PROPS.filter(x => x.pid !== ds.pid); propSave(); render(); toast('Proposta tolta', () => { PROPS = old; propSave(); render() }) }
+  else if (a === 'rate') rateDish(ds.k, +ds.v); else if (a === 'eatadd') eatAdd(ds.k); else if (a === 'rplus') ricSheet(); else if (a === 'rimp') importModal(); else if (a === 'rview') { S.rview = ds.v; if (S.rf) S.rf.fonte = ''; render() }
+  else if (a === 'popen') propModal(ds.pid); else if (a === 'lopen') propModal(ds.id, null, 'libro'); else if (a === 'pdel') { const old = PROPS.slice(); PROPS = PROPS.filter(x => x.pid !== ds.pid); propSave(); render(); toast('Proposta tolta', () => { PROPS = old; propSave(); render() }) }
   else if (a === 'pclear') { const old = PROPS.slice(); PROPS = []; propSave(); render(); toast('Proposte svuotate', () => { PROPS = old; propSave(); render() }) }
   else if (a === 'rfs') { const f = S.rf; const i = SORTS.findIndex(x => x[0] === f.sort); f.sort = SORTS[(i + 1) % SORTS.length][0]; render() }
   else if (a === 'rft') { S.rf[ds.v] = !S.rf[ds.v]; render() } else if (a === 'rftipo') { S.rf.tipo = S.rf.tipo === ds.v ? '' : ds.v; render() } else if (a === 'rffonte') { S.rf.fonte = S.rf.fonte === ds.v ? '' : ds.v; render() }
-  else if (a === 'rclass') classifyRics();
+  else if (a === 'rclass') classifyRics(); else if (a === 'rfile') ricFileModal();
   else if (a === 'briefx') { LS.set('brief', today()); render() }
   else if (a === 'spchi') { const o = ['', ...members().map(m => m.id)]; const nx = o[(o.indexOf(S.spesaChi || '') + 1) % o.length]; S.spesaChi = nx; render(); if (F) F.fs.setDoc(famRef(), { spesaChi: nx || F.fs.deleteField() }, { merge: true }).catch(werr); const nm = (members().find(m => m.id === nx) || {}).name; if (nm) logA(`ha segnato che ${nm} va a fare la spesa`) } else if (a === 'who') whoModal(); else if (a === 'settings') settingsModal();
   else if (a === 'wk') { S.week += +ds.v; S.sel = null; subWeek(); render() } else if (a === 'wk0') { S.week = 0; S.sel = null; subWeek(); render() } else if (a === 'sel') { S.sel = ds.d; render() } else if (a === 'pick') togglePick(ds.d, ds.meal, +ds.i); else if (a === 'cook') cookMeal(ds.d, ds.meal); else if (a === 'leftover') leftoverModal(ds.d, ds.meal); else if (a === 'spese') speseModal(); else if (a === 'uncook') undoCook(ds.d, ds.meal); else if (a === 'dplus') addSheet(); else if (a === 'fold') { const i = S.fold.indexOf(ds.v); if (i >= 0) S.fold.splice(i, 1); else S.fold.push(ds.v); LS.set('fold', S.fold); render() } else if (a === 'ddel') delU('dispensa', ds.id); else if (a === 'migok' || a === 'migno') { const L = S.disp.filter(d => !isLv(d) && !d.trackSet && !zero(d) && prof(d.name).lv); L.forEach(d => save('dispensa', d.id, a === 'migok' ? { ...d, track: 'livello', trackSet: true, unit: LV_UNITS.includes(d.unit) && d.unit !== 'pz' ? d.unit : 'conf', qty: d.qty || 1, lvl: 'pieno' } : { ...d, trackSet: true })); if (a === 'migok') toast(`${L.length} prodotti ora si contano per livello`) }
@@ -1698,12 +1818,12 @@ async function connect() {
   try {
     const X = await ensureFirebase(); F = { fs: X.fs, db: X.db, fam: S.fam }; const { fs } = F;
     const sub = (name, key) => fs.onSnapshot(col(name), s => { S[key] = s.docs.map(d => ({ id: d.id, ...d.data() })); render() }, dberr);
-    sub('dispensa', 'disp'); sub('ricette', 'ric'); sub('spesa', 'spesa'); sub('spese', 'spese'); subWeek();
+    sub('dispensa', 'disp'); sub('ricette', 'ric'); sub('libro', 'libro'); sub('spesa', 'spesa'); sub('spese', 'spese'); subWeek();
     fs.onSnapshot(dref('stats', 'acquisti'), d => { S.stats = (d.exists() && d.data().counts) || {}; if (S.tab === 'spesa') render() }, () => { });
     fs.onSnapshot(dref('stats', 'profili'), d => { S.prof = (d.exists() && d.data().p) || {}; render() }, () => { });
     fs.onSnapshot(dref('stats', 'piatti'), d => { S.piatti = (d.exists() && d.data().counts) || {}; if (S.tab === 'ricette') render() }, () => { });
     fs.onSnapshot(famRef(), d => {
-      const v = d.exists() && d.data(); S.members = v && Array.isArray(v.members) && v.members.length === 4 ? v.members : null; S.abit = (v && v.abit) || {}; S.rico = (v && v.rico) || {}; S.famKey = (v && v.gkey) || ''; S.gusti = (v && v.gusti) || {}; S.spesaChi = (v && v.spesaChi) || ''; S.famRaw = v || {}; render(); if (v && !d.metadata.fromCache) maintain(v);
+      const v = d.exists() && d.data(); S.members = v && Array.isArray(v.members) && v.members.length === 4 ? v.members : null; S.abit = (v && v.abit) || {}; S.rico = (v && v.rico) || {}; S.famKey = (v && v.gkey) || ''; S.famTkey = (v && v.tkey) || ''; S.gusti = (v && v.gusti) || {}; S.spesaChi = (v && v.spesaChi) || ''; S.famRaw = v || {}; render(); if (v && !d.metadata.fromCache) maintain(v);
       if (!S.me && !S.asked && !d.metadata.fromCache && $('#modal').hidden) { S.asked = true; S.created ? namesModal() : whoModal() } else if (S.me && !S.asked && !LS.get('tour', 0) && $('#modal').hidden) { S.asked = true; tourModal() }
     }, dberr);
     S.phase = 'ready'; S.note = ''; render()
