@@ -504,7 +504,7 @@ function renderRic() {
   $('#rseg').innerHTML = [['ricette', 'Ricette', S.ric.length], ['libro', 'Libro', S.libro.length], ['proposte', 'Proposte', PROPS.length], ['mangiati', 'Mangiati', Object.keys(S.piatti || {}).length]].map(([k, l, c]) => `<button class="${v === k ? 'on' : ''}" data-act="rview" data-v="${k}">${l} <small>${c}</small></button>`).join('');
   $('#rfil').innerHTML = ev ? '' : filterBar(lb ? 'libro' : pr); $('#rq').placeholder = ev ? 'Cerca un piatto…' : 'Cerca per nome o ingrediente…';
   if (ev) return renderEaten(); if (pr) return renderProps(); if (lb) return renderLibro();
-  const L = applyFilters(S.ric, false); const f = S.rf || {}; const nc = S.ric.filter(r => !r.tipo && !r.tipoSet && !tipoOf(r)).length;
+  const L = applyFilters(S.ric, false); const f = S.rf || {}; const nc = S.ric.filter(needsTipo).length;
   $('#rlist').innerHTML = (f.tipo && nc && gkey() ? `<li class="pcl"><button class="lnk" data-act="rclass">${nc === 1 ? '1 ricetta non ha' : nc + ' ricette non hanno'} il tipo: classificale con Gemini</button></li>` : '') + (L.length ? L.map(({ r, m }) => `<li class="rc"><button data-act="ropen" data-id="${r.id}"><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? esc(r.tempo) + ' min' : '', esc(r.porz || 4) + ' porzioni', esc(COURSE_L[tipoOf(r)] || ''), isVeg(r) ? 'vegetariana' : '', r.fonte ? esc(r.fonte) : ''].filter(Boolean).join(' · ')}</span><span class="bar"><i style="width:${m.tot ? Math.round(m.ok / m.tot * 100) : 100}%"></i></span><span class="mt">${m.miss.length ? `Hai ${m.ok} ingredienti su ${m.tot}. Mancano: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto per farla'}</span></button></li>`).join('')
     : `<li class="empty">${S.ric.length ? (rfState().mode === 'casa' ? 'Con quello che hai in casa non ci sono ricette di questo tipo.' : 'Nessuna ricetta con questi filtri.') + '<br><button class="bg" data-act="rfreset" style="margin-top:10px">Mostra tutte</button>' : 'Nessuna ricetta ancora. Tocca + per scriverne una, importarla o trovarne su GialloZafferano e Cucchiaio d\'Argento.'}</li>`)
 }
@@ -1656,7 +1656,7 @@ function dayBrief() {
 const TIPI = COURSES.filter(([k]) => k);
 const TIPO_RX = [
   ['', /^(confettur|marmellat|sciropp|liquor|nocino|limoncell|amaro di|rosolio|chutney|pesto|salsa|maionese|brodo|panatura|sale (al|aromatizzat)|zucchero aromatizzat|preparato per|crema di limone|composta|gelatina di|sott ?olio|sott ?aceto|giardiniera|ragu|besciamella|condimento|olio aromatizzat|aceto aromatizzat|dado)/],
-  ['', /\b(sott ?olio|sott ?aceto|in sciroppo|mostarda|aperitivo|bitter|liquore)/],
+  ['', /\b(sott ?olio|sott ?aceto|in sciroppo|mostarda|aperitivo|bitter|liquore|nocino|limoncello|zucchero a velo|confettura|marmellata di|chutney|sciroppo)/],
   ['unico', /\b(pizz[ae]|pizzett|focacc|schiacciat|panin[oi]|piadin|burger|hamburger|sandwich|club|bagel|tigell|crescia|calzon|torta salata|torte salate|quiche|tramezzin|toast|bruschettone|wrap|kebab|tacos|burrito|poke|bowl|insalatona|panzerott|crostone|francesino|piemontesino|smoking|gourmet|spadaccino|cecini|gamberino|club sandwich)/],
   ['antipasto', /\b(salat[ie]\b|finti coni|biscotti alla cipolla|frollini|antipast|bruschett|crostin|tartin|finger|stuzzich|blinis|grissin|salatin|cannoli salat|muffin salat|baci di dama salat|canestrell[io] salat|spiedin|bocconcin|polpettin|mini |cucchiai di|involtini di (zucchin|melanzan|bresaol|prosciutt)|rotol[oi]n[io]|samosa|falafel|hummus|tapas|cornetti salat|rose golose|coroncine|chips|olive ascolan|olive fritt|frittelle|arancin|suppl|crocchett|carpaccio|tartare|vol au vent|sformatin|paté|pate di|crema di (baccala|formagg)|acciughe marinat|insalata di mare|caprese|cocktail di gamber|pinzimonio|frittino)/],
   ['dolce', /\b(dolcett|^dolc|torta(?! salat)|torte(?! salat)|tortin[oi] (al|di) (cioccolat|mele|pere)|biscott|crostat|tiramis|budin|gelat|sorbett|semifredd|muffin(?! salat)|cupcake|cookie|brownie|cheesecake|plumcake|ciambell|ciambellon|panna cotta|pannacotta|bonet|babba|bombolon|cannoli(?! salat)|meringh|montblanc|zuccotto|zuppa inglese|strudel|sbrisolon|sfogliatell|pandolce|panettone|pandoro|colomba|frittell[ae] dolci|chiacchier|castagnol|zeppol|cantucc|amaretti|baci di dama(?! salat)|mousse|crema pasticc|crema catalana|bavarese|charlotte|profiterol|bigne|crepes? dolc|pancake|waffle|truffes|tartufi(ni)? (al|di) cioccolat|cioccolat|praline|torroncin|torrone|^croccante|pastiera|cassata|savoiardi|trifle|bicchierini di fragol|panforte|gubana|pignolata|salame dolce|nutella|frolla|alberelli|meringa|clafoutis|crumble|bounty|pudding|sfogliatin|paste di meliga|alla marmellata|squaglio|cioccolata calda)/],
@@ -1664,6 +1664,7 @@ const TIPO_RX = [
   ['secondo', /\b(pollo|gallina|tacchin|manzo|vitell|vitello|bovin|maial|arista|lonza|porchetta|coniglio|agnell|capretto|salsicc|cotechin|zampone|polpett|involtin|scaloppin|cotolett|milanese|saltimbocca|spezzatin|stufato|brasato|bollito|arrosto|rosbif|roast|bistecc|filetto|tagliata|fegat|trippa|frattaglie|ossobuc|stinco|galantina|frittat|uova|uovo|omelette|baccala|stoccafisso|merluzz|salmone|tonno|tonnetto|pesce|sarde|sardine|acciughe|alici|gamber|scampi|calamar|seppi|polpo|totan|cozze|vongole|cacciucco|brodetto|zuppa di pesce|branzino|orata|triglie|sogliola|rombo|spigola|paranza|pesce spada|sgombro|anguill|lumache|cotechino|vitello tonnato|parmigiana di (carne|pollo))/],
   ['contorno', /\b(contorn|insalat|verdur|patat|carciof|melanzan|zucchin|peperon|peperonat|cavol|cavolfior|broccol|spinac|bietol|cicori|scarol|radicchi|finocch|asparag|fagiolin|piselli|fave|favette|legumi|fagioli|ceci|lenticch|funghi|caponat|ciambotta|giardiniera|purea|pure|gratin|trifolat|grigliat|al forno|in padella|cipoll|porri|sedano|carote|rape|friarielli|ortiche|erbe)/],
 ];
+const needsTipo = r => !r.tipo && !r.tipoSet && !tipoOf(r) && !TIPO_RX.some(([k, rx]) => k === '' && rx.test(norm(r.name || '')));
 const TIPO_FONTE = [[/buffet/i, 'antipasto'], [/panini/i, 'unico'], [/insalate di riso/i, 'primo'], [/la pasta/i, 'primo']];
 const tipoOf = r => { if (r.tipo !== undefined && r.tipo !== null && (r.tipo || r.tipoSet)) return r.tipo; const n = norm(r.name || ''); const f = TIPO_RX.find(([, rx]) => rx.test(n)); if (f) return f[0]; const t = (r.tags || []).map(norm).find(t => TIPI.some(([k]) => k === t)); if (t) return t; const d = TIPO_FONTE.find(([rx]) => rx.test(r.fonte || '')); return d ? d[1] : '' };
 const MEATFISH = /\b(carne|manzo|vitell|maial|pollo|tacchin|agnell|coniglio|salsicc|prosciutt|pancett|guancial|speck|salam|mortadell|bresaol|wurstel|ragù|ragu|macinat|bistecc|fegat|anatra|cotechin|zampone|lardo|nduja|pesce|tonno|salmon|merluzz|baccal|gamber|cozz|vongol|tellin|affettat|salumi|cannolicch|ostric|canocch|cicale di mare|calamar|seppi|polp|acciug|alic|sgombr|branzin|orata|trot|sogliol|scampi|aragost|granchi|surimi|bottarg|sarde|sardin|triglie|anguill|lumach|bacon|cotechin|lonza|coppa|wurstel|pollo|gallina|brodo di (carne|pollo|manzo))/;
@@ -1773,7 +1774,7 @@ function renderProps() {
     + (PROPS.length && !L.length ? '<li class="empty">Nessuna proposta con questi filtri.<br><button class="bg" data-act="rfreset" style="margin-top:10px">Mostra tutte</button></li>' : '') + (PROPS.length ? '<li class="pcl"><button class="lnk" data-act="pclear">Svuota le proposte</button></li>' : '')
 }
 function renderLibro() {
-  const L0 = applyFilters(S.libro, 'libro'); const L = L0.slice(0, S.lmax || 60); const nc = S.libro.filter(r => !tipoOf(r) && !r.tipoSet).length;
+  const L0 = applyFilters(S.libro, 'libro'); const L = L0.slice(0, S.lmax || 60); const nc = S.libro.filter(needsTipo).length;
   $('#rlist').innerHTML = ((S.rf || {}).tipo && nc && gkey() ? `<li class="pcl"><button class="lnk" data-act="lclass">${nc === 1 ? '1 ricetta del libro non ha' : nc + ' ricette del libro non hanno'} il tipo di piatto: classificale con Gemini</button></li>` : '') + (S.libro.length ? '' : '<li class="empty"><b>Il Libro mastro è vuoto.</b><br>Qui finiscono le ricette importate dai PDF o dai file: le sfogli, Gemini te le può proporre, e tra le tue Ricette metti solo quelle che ti piacciono. Tocca + e poi "Tante ricette insieme".</li>')
     + L.map(({ r, m }) => `<li class="rc prc"><button data-act="lopen" data-id="${esc(r.id)}"><span class="ih">${r.fonte ? `<span class="src lb">${esc(r.fonte)}</span>` : ''}${r.rid && S.ric.some(x => x.id === r.rid) ? '<span class="svd">✓ tra le ricette</span>' : ''}</span><b>${esc(r.name)}</b><span class="meta">${[r.tempo ? r.tempo + ' min' : '', COURSE_L[tipoOf(r)] || '', isVeg(r) ? 'vegetariana' : ''].filter(Boolean).map(esc).join(' · ')}</span><span class="mt">${m.miss.length ? `Mancano ${m.miss.length}: ${m.miss.slice(0, 4).map(i => esc(i.n)).join(', ')}${m.miss.length > 4 ? '…' : ''}` : 'Hai tutto in casa'}</span></button></li>`).join('')
     + (S.libro.length && !L.length ? '<li class="empty">' + (rfState().mode === 'casa' ? 'Con quello che hai in casa non ci sono ricette di questo tipo (al massimo 2 ingredienti da comprare).' : 'Nessuna ricetta con questi filtri.') + '<br><button class="bg" data-act="rfreset" style="margin-top:10px">Mostra tutte</button></li>' : '') + (L0.length > L.length ? `<li class="pcl"><button class="bg wide" data-act="lmore">Mostra altre (${L0.length - L.length})</button></li>` : '')
@@ -1786,7 +1787,7 @@ async function classifyAsk(part, veg) {
   return tipoList(res).map((x, n) => { const idx = x.i ?? x.indice ?? x.id ?? x.n ?? n; const t = tipoNorm(x.tipo ?? x.categoria ?? x.portata ?? x.type); return { r: part[+idx], t, veg: x.veg } }).filter(x => x.r && x.t !== null)
 }
 async function classifyLibro() {
-  const L = S.libro.filter(r => !tipoOf(r) && !r.tipoSet); if (!L.length || !gkey()) return; toast(`Classifico ${L.length === 1 ? '1 ricetta' : L.length + ' ricette'}…`); let k = 0;
+  const L = S.libro.filter(needsTipo); if (!L.length || !gkey()) return; toast(`Classifico ${L.length === 1 ? '1 ricetta' : L.length + ' ricette'}…`); let k = 0;
   try {
     for (let i = 0; i < L.length; i += 40) {
       const got = await classifyAsk(L.slice(i, i + 40));
@@ -1797,7 +1798,7 @@ async function classifyLibro() {
   } catch (e) { toast('Non è andata: ' + (e.message || e)) }
 }
 async function classifyRics() {
-  const L = S.ric.filter(r => !r.tipo && !r.tipoSet); if (!L.length || !gkey()) return; toast(`Classifico ${L.length === 1 ? '1 ricetta' : L.length + ' ricette'}…`); let k = 0;
+  const L = S.ric.filter(needsTipo); if (!L.length || !gkey()) return; toast(`Classifico ${L.length === 1 ? '1 ricetta' : L.length + ' ricette'}…`); let k = 0;
   try {
     for (let i = 0; i < L.length; i += 40) { const got = await classifyAsk(L.slice(i, i + 40), true); got.forEach(x => { save('ricette', x.r.id, { ...x.r, tipo: x.t, tipoSet: true, ...(typeof x.veg === 'boolean' ? { veg: x.veg } : {}) }); k++ }) }
     toast(k ? `${k === 1 ? '1 ricetta classificata' : k + ' ricette classificate'}` : 'Gemini non ha risposto, riprova')
@@ -1812,7 +1813,7 @@ function normRic(x, fonte) {
   if (Array.isArray(x.righe) && x.righe.length) r.ingr = x.righe.map(l => parseLine(String(l))).filter(Boolean).map(({ ux, ...i }) => i);
   if (x.porz) r.porz = +x.porz || r.porz; if (x.tempo) r.tempo = +x.tempo || r.tempo;
   if (!r.name) return null;
-  const t = x.tipo; if (TIPI.some(([k]) => k === t)) r.tipo = t; if (typeof x.veg === 'boolean') r.veg = x.veg;
+  const t = x.tipo; if (TIPI.some(([k]) => k === t)) r.tipo = t; else if (t === '' || t === 'altro') { r.tipo = ''; r.tipoSet = true } if (typeof x.veg === 'boolean') r.veg = x.veg;
   r.fonte = String(x.fonte || fonte || ''); if (x.pagina) r.pagina = x.pagina; return r
 }
 function ricFileModal() {
