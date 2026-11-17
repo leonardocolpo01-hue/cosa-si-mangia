@@ -478,3 +478,4 @@ details.more .segc{margin:4px 0}
 .src.lb{background:light-dark(#efe7fb,#2a2140);color:light-dark(#5b3a9a,#c9b2ff)}
 #rseg button{font-size:13px;padding:0 4px}
 #rseg small{font-size:11px}
+.fbar .chip.rst{color:var(--tomt);font-weight:700}
